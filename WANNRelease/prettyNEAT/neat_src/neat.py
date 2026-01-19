@@ -116,10 +116,10 @@ class Neat():
     """Rank population according to Pareto dominance.
     """
     # Compile objectives
-    meanFit = np.asarray([ind.fitness for ind in self.pop])
-    nConns  = np.asarray([ind.nConn   for ind in self.pop])
+    meanFit = np.asarray([ind.fitness for ind in self.pop]) # (nInds,)
+    nConns  = np.asarray([ind.nConn   for ind in self.pop]) # (nInds,)
     nConns[nConns==0] = 1 # No connections is pareto optimal but boring...
-    objVals = np.c_[meanFit,1/nConns] # Maximize
+    objVals = np.c_[meanFit,1/nConns] # Maximize # (nInds, 2) 
 
     # Alternate between two objectives and single objective
     if self.p['alg_probMoo'] < np.random.rand():

@@ -24,7 +24,7 @@ class Species():
     self.bestInd = seed
     self.bestFit = seed.fitness
     self.lastImp = 0
-    self.nOffspring = []
+    self.nOffspring = [] # This part is weird 
 
 def speciate(self):  
   """Divides population into species and assigns each a number of offspring/
