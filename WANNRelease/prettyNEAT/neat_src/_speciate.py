@@ -129,7 +129,7 @@ def assignOffspring(self, species, pop, p):
 
   nSpecies = len(species)
   if nSpecies == 1:
-    species[0].offspring = p['popSize']
+    species[0].nOffspring = p['popSize'] # This part was using Offspring instead of nOffspring, so I changed it
   else:
     # -- Fitness Sharing
     # Rank all individuals
