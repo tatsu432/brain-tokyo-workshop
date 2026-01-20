@@ -3,7 +3,7 @@ import numpy as np
 
 # -- ANN Ordering -------------------------------------------------------- -- #
 
-def getNodeOrder(nodeG,connG):
+def getNodeOrder(nodeG: np.ndarray,connG: np.ndarray) -> tuple[np.ndarray, np.ndarray] | tuple[bool, bool]:
   """Builds connection matrix from genome through topological sorting.
 
   Args:
@@ -23,7 +23,7 @@ def getNodeOrder(nodeG,connG):
 
   Returns:
     Q    - [int]      - sorted node order as indices
-    wMat - (np_array) - ordered weight matrix
+    wMat - (np_array) - ordered weight matrix where wMat[i,j] is weight from node i → node *j` in that new order
            [N X N]
 
     OR
@@ -45,17 +45,20 @@ def getNodeOrder(nodeG,connG):
   dest = conn[2,:].astype(int)
   
   lookup = node[0,:].astype(int)
+  # after this loop, src and dest are index positions into node columns.
+  # Performance note: this loop is O(N_nodes * N_conns). A faster approach is building a dict {node_id: index} and vectorizing via np.vectorize or list comprehension to remap src/dest.
   for i in range(len(lookup)): # Can we vectorize this?
     src[np.where(src==lookup[i])] = i
     dest[np.where(dest==lookup[i])] = i
   
   wMat = np.zeros((np.shape(node)[1],np.shape(node)[1]))
   wMat[src,dest] = conn[3,:]
+  # For finding the topological sort, we only need to consider the connections between hidden nodes.
   connMat = wMat[nIns+nOuts:,nIns+nOuts:]
   connMat[connMat!=0] = 1
 
   # Topological Sort of Hidden Nodes
-  edge_in = np.sum(connMat,axis=0)
+  edge_in = np.sum(connMat,axis=0) # an array of length N_nodes, where edge_in[i] is the number of incoming connections to node i index
   Q = np.where(edge_in==0)[0]  # Start with nodes with no incoming connections
   for i in range(len(connMat)):
     if (len(Q) == 0) or (i >= len(Q)):
