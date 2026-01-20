@@ -167,12 +167,12 @@ def act(weights: np.ndarray, aVec: np.ndarray, nInput: int, nOutput: int, inPatt
   iNode = nInput+1
   for iNode in range(nInput+1,nNodes):
       rawAct = np.dot(nodeAct, wMat[:,iNode]).squeeze()
-      nodeAct[:,iNode] = applyAct(aVec[iNode], rawAct) 
+      nodeAct[:,iNode] = _applyAct(aVec[iNode], rawAct) 
       #print(nodeAct)
   output = nodeAct[:,-nOutput:]   
   return output
 
-def applyAct(actId, x):
+def _applyAct(actId: int, x: np.ndarray) -> np.ndarray:
   """Returns value after an activation function is applied
   Lookup table to allow activations to be stored in numpy arrays
 
@@ -200,7 +200,7 @@ def applyAct(actId, x):
   if actId == 1:   # Linear
     value = x
 
-  if actId == 2:   # Unsigned Step Function
+  elif actId == 2:   # Unsigned Step Function
     value = 1.0*(x>0.0)
     #value = (np.tanh(50*x/2.0) + 1.0)/2.0
 
