@@ -239,7 +239,7 @@ def _applyAct(actId: int, x: np.ndarray) -> np.ndarray:
 
 # -- Action Selection ---------------------------------------------------- -- #
 
-def selectAct(action, actSelect):  
+def selectAct(action: np.ndarray, actSelect: str) -> np.ndarray | int:  
   """Selects action based on vector of actions
 
     Single Action:
@@ -258,6 +258,13 @@ def selectAct(action, actSelect):
   Returns:
     i         - (int) or (np_array)     - chosen index
                          [N X 1]
+
+  Todo:
+    Naming mismatch: docstring says it returns index i sometimes, but code actually returns:
+    - a distribution (softmax)
+    - or an integer (prob)
+    - or raw vector (default)
+    So downstream code must know which mode it’s in.
   """  
   if actSelect == 'softmax':
     action = _softmax(action)
@@ -267,7 +274,7 @@ def selectAct(action, actSelect):
     action = action.flatten()
   return action
 
-def _softmax(x):
+def _softmax(x: np.ndarray) -> np.ndarray:
     """Compute softmax values for each sets of scores in x.
     Assumes: [samples x dims]
 
@@ -287,7 +294,7 @@ def _softmax(x):
       e_x = np.exp(x.T - np.max(x,axis=1))
       return (e_x / e_x.sum(axis=0)).T
 
-def _weightedRandom(weights):
+def _weightedRandom(weights: np.ndarray) -> int:
   """Returns random index, with each choices chance weighted
   Args:
     weights   - (np_array) - weighting of each choice
