@@ -79,7 +79,7 @@ def getNodeOrder(nodeG: np.ndarray,connG: np.ndarray) -> tuple[np.ndarray, np.nd
   
   return Q, wMat
 
-def getLayer(wMat):
+def getLayer(wMat: np.ndarray) -> np.ndarray:
   """Get layer of each node in weight matrix
   Traverse wMat by row, collecting layer of all nodes that connect to you (X).
   Your layer is max(X)+1. Input and output nodes are ignored and assigned layer
@@ -254,14 +254,14 @@ def selectAct(action, actSelect):
                          [N X 1]
   """  
   if actSelect == 'softmax':
-    action = softmax(action)
+    action = _softmax(action)
   elif actSelect == 'prob':
-    action = weightedRandom(np.sum(action,axis=0))
+    action = _weightedRandom(np.sum(action,axis=0))
   else:
     action = action.flatten()
   return action
 
-def softmax(x):
+def _softmax(x):
     """Compute softmax values for each sets of scores in x.
     Assumes: [samples x dims]
 
@@ -281,7 +281,7 @@ def softmax(x):
       e_x = np.exp(x.T - np.max(x,axis=1))
       return (e_x / e_x.sum(axis=0)).T
 
-def weightedRandom(weights):
+def _weightedRandom(weights):
   """Returns random index, with each choices chance weighted
   Args:
     weights   - (np_array) - weighting of each choice
