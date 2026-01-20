@@ -10,9 +10,9 @@ More difficult, since dt is 0.05 (not 0.01), and only 200 timesteps
 
 import logging
 import math
-import gym
-from gym import spaces
-from gym.utils import seeding
+import gymnasium as gym
+from gymnasium import spaces
+from gymnasium.utils.seeding import np_random
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -73,7 +73,7 @@ class CartPoleSwingUpEnv(gym.Env):
         self.noise = noiseVariance
 
     def seed(self, seed=None):
-        self.np_random, seed = seeding.np_random(seed)
+        self.np_random, seed = np_random(seed)
         return [seed]
 
     def stateUpdate(self,action,state, noise=0):
@@ -155,7 +155,7 @@ class CartPoleSwingUpEnv(gym.Env):
         cartheight = 20.0
 
         if self.viewer is None:
-            from gym.envs.classic_control import rendering
+            from gymnasium.envs.classic_control import rendering
             self.viewer = rendering.Viewer(screen_width, screen_height)
   
             l,r,t,b = -cartwidth/2, cartwidth/2, cartheight/2, -cartheight/2

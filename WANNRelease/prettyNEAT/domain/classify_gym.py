@@ -1,8 +1,8 @@
 import logging
 import math
-import gym
-from gym import spaces
-from gym.utils import seeding
+import gymnasium as gym
+from gymnasium import spaces
+from gymnasium.utils.seeding import np_random
 import numpy as np
 import sys
 import cv2
@@ -44,7 +44,7 @@ class ClassifyEnv(gym.Env):
 
   def seed(self, seed=None):
     ''' Randomly select from training set'''
-    self.np_random, seed = seeding.np_random(seed)
+    self.np_random, seed = np_random(seed)
     return [seed]
   
   def reset(self):

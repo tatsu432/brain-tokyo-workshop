@@ -6,9 +6,10 @@ import numpy as np
 import Box2D
 from Box2D.b2 import (edgeShape, circleShape, fixtureDef, polygonShape, revoluteJointDef, contactListener)
 
-import gym
-from gym import spaces
-from gym.utils import colorize, seeding
+import gymnasium as gym
+from gymnasium import spaces
+from gymnasium.utils import colorize
+from gymnasium.utils.seeding import np_random as seeding_np_random
 
 # This is simple 4-joints walker robot environment.
 #
@@ -148,7 +149,7 @@ class BipedalWalker(gym.Env):
         self.timer = 0
 
     def seed(self, seed=None):
-        self.np_random, seed = seeding.np_random(seed)
+        self.np_random, seed = seeding_np_random(seed)
         return [seed]
 
     def _destroy(self):
@@ -469,7 +470,7 @@ class BipedalWalker(gym.Env):
                 self.viewer = None
             return
 
-        from gym.envs.classic_control import rendering
+        from gymnasium.envs.classic_control import rendering
         if self.viewer is None:
             self.viewer = rendering.Viewer(VIEWPORT_W, VIEWPORT_H)
         self.viewer.set_bounds(self.scroll, VIEWPORT_W/SCALE + self.scroll, 0, VIEWPORT_H/SCALE)

@@ -1,9 +1,9 @@
 import numpy as np
-import gym
+import gymnasium as gym
 
 from scipy.misc import imresize as resize
-from gym.spaces.box import Box
-from gym.envs.box2d.car_racing import CarRacing
+from gymnasium.spaces.box import Box
+from gymnasium.envs.box2d.car_racing import CarRacing
 
 from vae.vae import ConvVAE
 
