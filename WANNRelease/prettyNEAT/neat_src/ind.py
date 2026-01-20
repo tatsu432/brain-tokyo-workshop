@@ -163,7 +163,7 @@ class Ind():
     
     return child
 
-  def mutate(self,p,innov=None,gen=None):
+  def mutate(self,p: dict,innov: np.ndarray=None,gen: int=None) -> tuple['Ind', np.ndarray]:
     """Randomly alter topology and weights of individual
 
     Args:
