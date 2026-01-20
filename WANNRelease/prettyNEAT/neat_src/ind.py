@@ -104,7 +104,7 @@ class Ind():
 
 # -- Canonical NEAT recombination operators ------------------------------ -- #
 
-  def crossover(self,mate):
+  def crossover(self,mate: 'Ind') -> 'Ind':
     """Combine genes of two individuals to produce new individual
 
       Procedure:
@@ -125,6 +125,24 @@ class Ind():
 
     Returns:
         child   - (Ind) - newly created individual
+
+    What’s missing vs canonical NEAT crossover
+
+    Canonical NEAT typically:
+
+      inherits matching genes randomly from either parent,
+
+      inherits disjoint/excess genes from the fitter parent,
+
+      has special handling for disabled genes (often “if either parent has it disabled, child may inherit disabled with some probability”).
+
+    This implementation:
+
+      does not copy any disjoint/excess genes from parentB (topology contribution is zero),
+
+      does not do anything about disabled genes during crossover.
+
+      So it’s more like: “fitter topology wins, weaker parent only nudges weights.”
 
     """
     parentA = self

@@ -2,7 +2,6 @@ import os
 import numpy as np
 import copy
 from .ann import exportNet
-
 class DataGatherer():
   """Data recorder for NEAT algorithm
   """
