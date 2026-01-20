@@ -55,7 +55,7 @@ def gatherData(data,neat,gen,hyp,savePop=False):
     data - (DataGatherer) - updated run data
   """
   data.gatherData(neat.pop, neat.species)
-  if (gen%hyp['save_mod']) is 0:
+  if (gen%hyp['save_mod']) == 0:
     data = checkBest(data)
     data.save(gen)
 
