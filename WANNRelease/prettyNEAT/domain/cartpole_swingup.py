@@ -17,6 +17,14 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
+# Try to import pygame for rendering
+try:
+    import pygame
+    PYGAME_AVAILABLE = True
+except ImportError:
+    PYGAME_AVAILABLE = False
+    print("Warning: pygame not available. Rendering will be disabled.")
+
 class CartPoleSwingUpEnv(gym.Env):
     metadata = {
         'render.modes': ['human', 'rgb_array'],
@@ -59,6 +67,7 @@ class CartPoleSwingUpEnv(gym.Env):
         self.state = None
 
         self.noise = 0
+        self._render_warning_shown = False
 
     def setEnv(self, envChange):
         '''
@@ -139,12 +148,16 @@ class CartPoleSwingUpEnv(gym.Env):
     def render(self, mode='human', close=False):
         if close:
             if self.viewer is not None:
-                self.viewer.close()
+                if PYGAME_AVAILABLE:
+                    pygame.quit()
                 self.viewer = None
             return
 
+        if not PYGAME_AVAILABLE:
+            return None
+
         screen_width = 600
-        screen_height = 600 # before was 400
+        screen_height = 600
 
         world_width = 5  # max visible position of cart
         scale = screen_width/world_width
@@ -155,64 +168,77 @@ class CartPoleSwingUpEnv(gym.Env):
         cartheight = 20.0
 
         if self.viewer is None:
-            from gymnasium.envs.classic_control import rendering
-            self.viewer = rendering.Viewer(screen_width, screen_height)
-  
-            l,r,t,b = -cartwidth/2, cartwidth/2, cartheight/2, -cartheight/2
-  
-            cart = rendering.FilledPolygon([(l,b), (l,t), (r,t), (r,b)])
-            self.carttrans = rendering.Transform()
-            cart.add_attr(self.carttrans)
-            cart.set_color(1, 0, 0)
-            self.viewer.add_geom(cart)
-  
-            l,r,t,b = -polewidth/2,polewidth/2,polelen-polewidth/2,-polewidth/2
-            pole = rendering.FilledPolygon([(l,b), (l,t), (r,t), (r,b)])
-            pole.set_color(0, 0, 1)
-            self.poletrans = rendering.Transform(translation=(0, 0))
-            pole.add_attr(self.poletrans)
-            pole.add_attr(self.carttrans)
-            self.viewer.add_geom(pole)
-  
-            self.axle = rendering.make_circle(polewidth/2)
-            self.axle.add_attr(self.poletrans)
-            self.axle.add_attr(self.carttrans)
-            self.axle.set_color(0.1, 1, 1)
-            self.viewer.add_geom(self.axle)
-  
-            # Make another circle on the top of the pole
-            self.pole_bob = rendering.make_circle(polewidth/2)
-            self.pole_bob_trans = rendering.Transform()
-            self.pole_bob.add_attr(self.pole_bob_trans)
-            self.pole_bob.add_attr(self.poletrans)
-            self.pole_bob.add_attr(self.carttrans)
-            self.pole_bob.set_color(0, 0, 0)
-            self.viewer.add_geom(self.pole_bob)
+            try:
+                pygame.init()
+                self.viewer = pygame.display.set_mode((screen_width, screen_height))
+                pygame.display.set_caption("CartPole Swing-Up")
+                self.clock = pygame.time.Clock()
+            except pygame.error as e:
+                if not self._render_warning_shown:
+                    print(f"Warning: Could not initialize pygame display: {e}")
+                    print("Running in headless mode. Rendering disabled.")
+                    self._render_warning_shown = True
+                return None
 
-            self.wheel_l = rendering.make_circle(cartheight/4)
-            self.wheel_r = rendering.make_circle(cartheight/4)
-            self.wheeltrans_l = rendering.Transform(translation=(-cartwidth/2, -cartheight/2))
-            self.wheeltrans_r = rendering.Transform(translation=(cartwidth/2, -cartheight/2))
-            self.wheel_l.add_attr(self.wheeltrans_l)
-            self.wheel_l.add_attr(self.carttrans)
-            self.wheel_r.add_attr(self.wheeltrans_r)
-            self.wheel_r.add_attr(self.carttrans)
-            self.wheel_l.set_color(0, 0, 0)  # Black, (B, G, R)
-            self.wheel_r.set_color(0, 0, 0)  # Black, (B, G, R)
-            self.viewer.add_geom(self.wheel_l)
-            self.viewer.add_geom(self.wheel_r)
+        if self.state is None:
+            return None
 
-            self.track = rendering.Line((screen_width/2 - self.x_threshold*scale,carty - cartheight/2 - cartheight/4),
-              (screen_width/2 + self.x_threshold*scale,carty - cartheight/2 - cartheight/4))
-            self.track.set_color(0,0,0)
-            self.viewer.add_geom(self.track)
+        # Handle pygame events to prevent freezing
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                return None
 
-        if self.state is None: return None
+        # Fill background
+        self.viewer.fill((255, 255, 255))
 
-        x = self.state
-        cartx = x[0]*scale+screen_width/2.0 # MIDDLE OF CART
-        self.carttrans.set_translation(cartx, carty)
-        self.poletrans.set_rotation(x[2])
-        self.pole_bob_trans.set_translation(-self.l*np.sin(x[2]), self.l*np.cos(x[2]))
+        # Get cart position
+        x_pos, _, theta, _ = self.state
+        cartx = int(x_pos * scale + screen_width / 2.0)
+        carty_int = int(carty)
 
-        return self.viewer.render(return_rgb_array = mode=='rgb_array')
+        # Draw track
+        track_y = carty_int + int(cartheight/2) + int(cartheight/4)
+        track_left = int(screen_width/2 - self.x_threshold * scale)
+        track_right = int(screen_width/2 + self.x_threshold * scale)
+        pygame.draw.line(self.viewer, (0, 0, 0), (track_left, track_y), (track_right, track_y), 2)
+
+        # Draw cart
+        cart_rect = pygame.Rect(
+            cartx - int(cartwidth/2),
+            carty_int - int(cartheight/2),
+            int(cartwidth),
+            int(cartheight)
+        )
+        pygame.draw.rect(self.viewer, (255, 0, 0), cart_rect)
+
+        # Draw wheels
+        wheel_radius = int(cartheight/4)
+        pygame.draw.circle(self.viewer, (0, 0, 0),
+                          (cartx - int(cartwidth/2), carty_int + int(cartheight/2)),
+                          wheel_radius)
+        pygame.draw.circle(self.viewer, (0, 0, 0),
+                          (cartx + int(cartwidth/2), carty_int + int(cartheight/2)),
+                          wheel_radius)
+
+        # Draw pole
+        pole_end_x = cartx + int(polelen * np.sin(theta))
+        pole_end_y = carty_int - int(polelen * np.cos(theta))
+        pygame.draw.line(self.viewer, (0, 0, 255), (cartx, carty_int),
+                        (pole_end_x, pole_end_y), int(polewidth))
+
+        # Draw axle
+        pygame.draw.circle(self.viewer, (25, 255, 255), (cartx, carty_int), int(polewidth/2))
+
+        # Draw pole bob
+        pygame.draw.circle(self.viewer, (0, 0, 0), (pole_end_x, pole_end_y), int(polewidth/2))
+
+        pygame.display.flip()
+        self.clock.tick(50)  # 50 FPS
+
+        if mode == 'rgb_array':
+            return np.transpose(
+                np.array(pygame.surfarray.pixels3d(self.viewer)), axes=(1, 0, 2)
+            )
+
+        return None
