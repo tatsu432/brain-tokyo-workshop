@@ -115,6 +115,30 @@ cartpole_swingup = cartpole_swingup._replace(\
 games['swingup'] = cartpole_swingup
 
 
+# -- Slime Volleyball ---------------------------------------------------- -- #
+
+# > Multi-agent volleyball game
+slimevolley = Game(env_name='SlimeVolley-v0',
+  actionSelect='all', # all, soft, hard
+  input_size=12,
+  output_size=3,
+  time_factor=0,
+  layers=[15, 10],
+  i_act=np.full(12,1),
+  h_act=[1,2,3,4,5,6,7,8,9,10],
+  o_act=np.full(3,1),
+  weightCap = 2.0,
+  noise_bias=0.0,
+  output_noise=[False, False, False],
+  max_episode_length = 3000,
+  in_out_labels = ['agent_x','agent_y','agent_vx','agent_vy',
+                   'ball_x','ball_y','ball_vx','ball_vy',
+                   'opponent_x','opponent_y','opponent_vx','opponent_vy',
+                   'forward','backward','jump']
+)
+games['slimevolley'] = slimevolley
+
+
 # -- Bipedal Walker ------------------------------------------------------ -- #
 
 # > Flat terrain

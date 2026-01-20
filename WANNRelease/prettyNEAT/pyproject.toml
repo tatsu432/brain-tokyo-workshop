@@ -10,4 +10,7 @@ dependencies = [
     "matplotlib>=3.10.8",
     "mpi4py>=4.1.1",
     "numpy>=2.4.1",
+    "slimevolleygym>=0.1.0",
+    "opencv-python>=4.8.0",
+    "gym>=0.26.0",
 ]
