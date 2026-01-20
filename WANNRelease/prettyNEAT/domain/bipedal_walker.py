@@ -142,9 +142,11 @@ class BipedalWalker(gym.Env):
 
         self.reset()
 
-        high = np.array([np.inf]*24)
-        self.action_space = spaces.Box(np.array([-1,-1,-1,-1]), np.array([+1,+1,+1,+1]))
-        self.observation_space = spaces.Box(-high, high)
+        high = np.array([np.inf]*24, dtype=np.float32)
+        self.action_space = spaces.Box(low=np.array([-1,-1,-1,-1], dtype=np.float32), 
+                                       high=np.array([+1,+1,+1,+1], dtype=np.float32), 
+                                       dtype=np.float32)
+        self.observation_space = spaces.Box(low=-high, high=high, dtype=np.float32)
 
         self.timer = 0
 

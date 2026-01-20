@@ -43,8 +43,8 @@ class VAERacing(CarRacing):
     self.vae = ConvVAE(batch_size=1, z_size=self.z_size, gpu_mode=False, is_training=False, reuse=True)
     self.vae.load_json('vae/vae_'+str(self.z_size)+'.json')
     self.full_episode = full_episode
-    high = np.array([np.inf] * self.z_size)
-    self.observation_space = Box(-high, high)
+    high = np.array([np.inf] * self.z_size, dtype=np.float32)
+    self.observation_space = Box(low=-high, high=high, dtype=np.float32)
     self._has_rendered = False
     self.real_frame = None
 
