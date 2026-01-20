@@ -63,17 +63,20 @@ def bestIntSplit(ratio, total):
     Returns:
       intSplit   - [1 x N ] - Number in each pile
   """
+  # Flatten ratio to ensure 1D array operations
+  ratio = np.asarray(ratio).flatten()
+  
   # Handle poorly defined ratio
   if sum(ratio) is not 1:
-    ratio = np.asarray(ratio)/sum(ratio)
+    ratio = ratio/sum(ratio)
   
   # Get share in real and integer values
   floatSplit = np.multiply(ratio,total)
   intSplit   = np.floor(floatSplit)
-  remainder  = int(total - sum(intSplit))
+  remainder  = int(total) - int(np.sum(intSplit))
   
   # Rank piles by most cheated by rounding
-  deserving = np.argsort(-(floatSplit-intSplit),axis=0)
+  deserving = np.argsort(-(floatSplit-intSplit))
   
   # Distribute remained to most deserving
   intSplit[deserving[:remainder]] = intSplit[deserving[:remainder]] + 1    
