@@ -25,6 +25,15 @@ logger = logging.getLogger(__name__)
 try:
     import slimevolleygym
     import gym as old_gym  # slimevolleygym uses old gym API
+    
+    # Apply rendering patch to fix gym rendering compatibility issues
+    try:
+        from domain.slimevolley_rendering_patch import apply_rendering_patch
+        apply_rendering_patch()
+        logger.info("Applied slimevolleygym rendering patch")
+    except Exception as e:
+        logger.warning(f"Could not apply rendering patch: {e}")
+    
     SLIMEVOLLEY_AVAILABLE = True
 except ImportError:
     SLIMEVOLLEY_AVAILABLE = False
@@ -172,7 +181,10 @@ class SlimeVolleyEnv(gym.Env):
     
     def render(self, mode='human', close=False):
         """
-        Render the environment.
+        Render the environment using slimevolleygym's native rendering.
+        
+        The rendering patch enables the actual game rendering which looks
+        much better than a custom implementation.
         
         Args:
             mode: Render mode ('human' or 'rgb_array')
@@ -187,12 +199,14 @@ class SlimeVolleyEnv(gym.Env):
                 self.viewer = None
             return
         
+        # Use the actual slimevolleygym rendering
+        # With our rendering patch, this now works properly
         try:
             return self.env.render(mode=mode)
         except Exception as e:
             if not self._render_warning_shown:
-                print(f"Warning: Could not render environment: {e}")
-                print("Rendering may not be available in headless mode.")
+                logger.warning(f"Rendering error: {e}")
+                print(f"Warning: Rendering error: {e}")
                 self._render_warning_shown = True
             return None
     
