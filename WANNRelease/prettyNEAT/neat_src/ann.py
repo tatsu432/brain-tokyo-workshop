@@ -115,7 +115,7 @@ def getLayer(wMat: np.ndarray) -> np.ndarray:
 
 # -- ANN Activation ------------------------------------------------------ -- #
 
-def act(weights, aVec, nInput, nOutput, inPattern):
+def act(weights: np.ndarray, aVec: np.ndarray, nInput: int, nOutput: int, inPattern: np.ndarray) -> np.ndarray:
   """Returns FFANN output given a single input pattern
   If the variable weights is a vector it is turned into a square weight matrix.
   
@@ -130,7 +130,7 @@ def act(weights, aVec, nInput, nOutput, inPattern):
                 [N X 1]    - stored as ints (see applyAct in ann.py)
     nInput    - (int)      - number of input nodes
     nOutput   - (int)      - number of output nodes
-    inPattern - (np_array) - input activation
+    inPattern - (np_array) - input activation. inPattern is the actual input values to the neural network, not an activation function.
                 [1 X nInput] or [nSamples X nInput]
 
   Returns:
@@ -147,12 +147,18 @@ def act(weights, aVec, nInput, nOutput, inPattern):
   wMat[np.isnan(wMat)]=0
 
   # Vectorize input
+  # nSamples is like a batch size.
   if np.ndim(inPattern) > 1:
       nSamples = np.shape(inPattern)[0]
   else:
       nSamples = 1
 
   # Run input pattern through ANN    
+  # This assumes a very specific node ordering convention:
+  # node 0 is bias
+  # nodes 1..nInput are inputs
+  # then hidden nodes
+  # then outputs
   nodeAct  = np.zeros((nSamples,nNodes))
   nodeAct[:,0] = 1 # Bias activation
   nodeAct[:,1:nInput+1] = inPattern
