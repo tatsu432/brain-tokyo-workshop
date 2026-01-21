@@ -2,10 +2,28 @@ import os
 import numpy as np
 import copy
 from .ann import exportNet
+from ._speciate import Species
+from .ind import Ind
+
 class DataGatherer():
   """Data recorder for NEAT algorithm
-  """
-  def __init__(self, filename, hyp): 
+    It keeps two kinds of “best” individuals:
+    - elite: best individual of the current generation (one per generation).
+    - best: best individual seen so far across all generations (also one per generation; it repeats the previous best if no improvement).
+
+    And it keeps time-series arrays for plots:
+    - x_scale: cumulative evaluation count (not generation index—more on that)
+    - fit_med: median fitness in population per generation
+    - fit_max: best fitness in population per generation (elite fitness)
+    - fit_top: best-so-far fitness per generation (best fitness across history)
+    - node_med: median number of nodes per generation
+    - conn_med: median number of connections per generation
+
+    Optional extras:
+    - spec_fit: per-individual fitness labeled by species id (for NEAT speciation visualization)
+    - objVals: if doing multi-objective optimization (MOO), it stores fitness and complexity together
+      """
+  def __init__(self, filename: str, hyp: dict): 
     """
     Args:
       filename - (string) - path+prefix of file output destination
@@ -15,34 +33,37 @@ class DataGatherer():
     self.p = hyp
     
     # Initialize empty fields
-    self.elite = []
-    self.best = []
-    self.bestFitVec = []
-    self.spec_fit = []
-    self.field = ['x_scale','fit_med','fit_max','fit_top',\
-                  'node_med','conn_med',\
-                  'elite','best']
+    self.elite: list[Ind] = [] # List of elite individuals until the current generation
+    self.best: list[Ind] = [] # List of best individuals until the current generation
+    self.bestFitVec: list[float] = []
+    self.spec_fit: list[tuple[int, float]] = []
+    self.field: list[str] = ['x_scale','fit_med','fit_max','fit_top',\
+                  'node_med','conn_med','num_species',\
+                  'elite','best'  ]
+    
 
     if self.p['alg_probMoo'] > 0:
       self.objVals = np.array([])
 
-    for f in self.field[:-2]:
+    for f in self.field[:-2]:  # FIX: exclude 'elite', 'best' (last 2)
       exec('self.' + f + ' = np.array([])')
       #e.g. self.fit_max   = np.array([]) 
 
     self.newBest = False
 
-  def gatherData(self, pop, species):
+  def gatherData(self, pop: list[Ind], species: Species) -> None:
     """Collect and stores run data
+    This is called once per generation (or once per “iteration” of the algorithm).
     """
 
     # Readability
     fitness = [ind.fitness for ind in pop]
-    nodes = np.asarray([np.shape(ind.node)[1] for ind in pop])
-    conns = np.asarray([ind.nConn for ind in pop])
+    nodes = np.asarray([np.shape(ind.node)[1] for ind in pop]) # Number of nodes in the individual
+    conns = np.asarray([ind.nConn for ind in pop]) # Number of connections in the individual
     
     # --- Evaluation Scale ---------------------------------------------------
-    if len(self.x_scale) is 0:
+    # it’s not the generation index. It’s like an x-axis for learning curves in terms of evaluations.
+    if len(self.x_scale) == 0:
       self.x_scale = np.append(self.x_scale, len(pop))
     else:
       self.x_scale = np.append(self.x_scale, self.x_scale[-1]+len(pop))
@@ -51,23 +72,23 @@ class DataGatherer():
     
     # --- Best Individual ----------------------------------------------------
     self.elite.append(pop[np.argmax(fitness)])
-    if len(self.best) is 0:
-      self.best = copy.deepcopy(self.elite)
+    if len(self.best) == 0:
+      self.best.append(copy.deepcopy(self.elite[-1]))
     elif (self.elite[-1].fitness > self.best[-1].fitness):
-      self.best = np.append(self.best,copy.deepcopy(self.elite[-1]))
+      self.best.append(copy.deepcopy(self.elite[-1]))
       self.newBest = True
     else:
-      self.best = np.append(self.best,copy.deepcopy(self.best[-1]))   
+      self.best.append(copy.deepcopy(self.best[-1]))   
       self.newBest = False
     # ------------------------------------------------------------------------ 
 
     
     # --- Generation fit/complexity stats ------------------------------------ 
-    self.node_med = np.append(self.node_med,np.median(nodes))
-    self.conn_med = np.append(self.conn_med,np.median(conns))
-    self.fit_med  = np.append(self.fit_med, np.median(fitness))
-    self.fit_max  = np.append(self.fit_max,  self.elite[-1].fitness)
-    self.fit_top  = np.append(self.fit_top,  self.best[-1].fitness)
+    self.node_med = np.append(self.node_med,np.median(nodes)) # Median number of nodes in the population
+    self.conn_med = np.append(self.conn_med,np.median(conns)) # Median number of connections in the population
+    self.fit_med  = np.append(self.fit_med, np.median(fitness)) # Median fitness in the population
+    self.fit_max  = np.append(self.fit_max,  self.elite[-1].fitness) # Best fitness in the population
+    self.fit_top  = np.append(self.fit_top,  self.best[-1].fitness) # Best fitness across history
     # ------------------------------------------------------------------------ 
 
 
@@ -89,14 +110,22 @@ class DataGatherer():
           tmp = np.array((iSpec,ind.fitness))
           specFit = np.c_[specFit,tmp]
       self.spec_fit = specFit
+
+    self.num_species = np.append(self.num_species, len(species))
     # ------------------------------------------------------------------------ 
 
 
   def display(self):
     """Console output for each generation
     """
-    return    "|---| Elite Fit: " + '{:.2f}'.format(self.fit_max[-1]) \
-         + " \t|---| Best Fit:  "  + '{:.2f}'.format(self.fit_top[-1])
+    # return    "|---| Elite Fit: " + '{:.2f}'.format(self.fit_max[-1]) \
+    #      + " \t|---| Best Fit:  "  + '{:.2f}'.format(self.fit_top[-1]) \
+    return    "Elite Fit: " + '{:.2f}'.format(self.fit_max[-1]) \
+         + " Best Fit:"  + '{:.2f}'.format(self.fit_top[-1]) \
+         + " #Species:"  + str(int(self.num_species[-1])) \
+         + " Med #nodes:"  + str(int(self.node_med[-1])) \
+         + " Med #conns:"  + str(int(self.conn_med[-1])) \
+
 
   def save(self, gen=(-1)):
     """Save algorithm stats to disk
@@ -141,7 +170,7 @@ class DataGatherer():
       lsave(pref + '_objVals.out',self.objVals)
     # ------------------------------------------------------------------------
 
-  def savePop(self,pop,filename):
+  def savePop(self,pop: list[Ind],filename: str) -> None:
     """Save all individuals in population as numpy arrays
     """
     folder = 'log/' + filename + '_pop/'
@@ -151,7 +180,7 @@ class DataGatherer():
     for i in range(len(pop)):
       exportNet(folder+'ind_'+str(i)+'.out', pop[i].wMat, pop[i].aVec)
 
-def lsave(filename, data):
+def lsave(filename: str, data: np.ndarray) -> None:
   """Short hand for numpy save with csv and float precision defaults
   """
   np.savetxt(filename, data, delimiter=',',fmt='%1.2e')

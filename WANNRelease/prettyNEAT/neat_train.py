@@ -92,10 +92,9 @@ def checkBest(data):
       data.best[-1].fitness = trueFit
       data.fit_top[-1]      = trueFit
       data.bestFitVec = fitVector
-    else:                                # Just lucky!
-      prev = hyp['save_mod']
-      data.best[-prev:]    = data.best[-prev]
-      data.fit_top[-prev:] = data.fit_top[-prev]
+    else:                                # Just lucky! Revert to previous best
+      data.best[-1] = data.best[-2]
+      data.fit_top[-1] = data.fit_top[-2]
       data.newBest = False
   return data
 

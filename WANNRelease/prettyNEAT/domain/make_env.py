@@ -55,8 +55,17 @@ def make_env(env_name, seed=-1, render_mode=False):
 
   # -- Slime Volleyball ---------------------------------------------- -- #
   elif (env_name.startswith("SlimeVolley")):
-    from domain.slimevolley import SlimeVolleyEnv
-    env = SlimeVolleyEnv()
+    # Support different variants:
+    # - SlimeVolley-v0: Standard sparse rewards
+    # - SlimeVolley-Shaped-v0: Dense reward shaping (easier to learn)
+    if "Shaped" in env_name:
+      from domain.slimevolley import SlimeVolleyRewardShapingEnv
+      # shaping_weight controls how much shaped rewards matter
+      # 0.01 = small nudges, 0.1 = significant influence
+      env = SlimeVolleyRewardShapingEnv(shaping_weight=0.01)
+    else:
+      from domain.slimevolley import SlimeVolleyEnv
+      env = SlimeVolleyEnv()
 
   # -- Other  -------------------------------------------------------- -- #
   else:

@@ -118,25 +118,41 @@ games['swingup'] = cartpole_swingup
 # -- Slime Volleyball ---------------------------------------------------- -- #
 
 # > Multi-agent volleyball game
+# V4 CRITICAL FIX: Use LINEAR outputs with CLIPPING (like SwingUp does!)
+#   - 2 outputs [horizontal, jump] to match action mapping
+#   - LINEAR activation (o_act=1) for good gradient flow
+#   - Action mapping clips outputs to [-1,1] to prevent saturation
+#   - This matches the working SwingUp pattern
 slimevolley = Game(env_name='SlimeVolley-v0',
   actionSelect='all', # all, soft, hard
   input_size=12,
-  output_size=3,
+  output_size=2,  # 2 outputs [horizontal_movement, jump]
   time_factor=0,
-  layers=[15, 10],
+  layers=[8, 8],  # Simplified from [15, 10]
   i_act=np.full(12,1),
   h_act=[1,2,3,4,5,6,7,8,9,10],
-  o_act=np.full(3,1),
+  o_act=np.full(2,1),  # V4 FIX: LINEAR (like SwingUp!) instead of tanh
   weightCap = 2.0,
   noise_bias=0.0,
-  output_noise=[False, False, False],
+  output_noise=[False, False],
   max_episode_length = 3000,
   in_out_labels = ['agent_x','agent_y','agent_vx','agent_vy',
                    'ball_x','ball_y','ball_vx','ball_vy',
                    'opponent_x','opponent_y','opponent_vx','opponent_vy',
-                   'forward','backward','jump']
+                   'horizontal','jump']
 )
 games['slimevolley'] = slimevolley
+
+# > SlimeVolley with LARGE network (for harder learning)
+# If [8,8] is stuck, try much larger network
+slimevolley_large = slimevolley._replace(layers=[30, 30])
+games['slimevolley_large'] = slimevolley_large
+
+# > SlimeVolley with reward shaping (NOT RECOMMENDED - causes reward hacking)
+# Reward shaping creates false positive fitness by overwhelming real game rewards
+# Only use for initial exploration, then switch to non-shaped version
+slimevolley_shaped = slimevolley._replace(env_name='SlimeVolley-Shaped-v0')
+games['slimevolley_shaped'] = slimevolley_shaped
 
 
 # -- Bipedal Walker ------------------------------------------------------ -- #

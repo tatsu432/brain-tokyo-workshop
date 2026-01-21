@@ -4,7 +4,9 @@ from .ind import Ind
 from utils import *
 
 
-def evolvePop(self):
+from ._speciate import Species
+
+def evolvePop(self) -> None:
   """ Evolves new population from existing species.
   Wrapper which calls 'recombine' on every species and combines all offspring into a new population. When speciation is not used, the entire population is treated as a single species.
   """
@@ -15,7 +17,7 @@ def evolvePop(self):
     newPop.append(children)
   self.pop = list(itertools.chain.from_iterable(newPop))   
 
-def recombine(self, species, innov, gen):
+def recombine(self, species: 'Species', innov: np.ndarray, gen: int) -> tuple[list[Ind], np.ndarray]:
   """ Creates next generation of child solutions from a species
 
   Procedure:
@@ -57,7 +59,8 @@ def recombine(self, species, innov, gen):
     pop[-numberToCull:] = []     
 
   # Elitism - keep best individuals unchanged
-  nElites = int(np.floor(len(pop)*p['select_eliteRatio']))
+  # Limit elites to not exceed available offspring count
+  nElites = min(int(np.floor(len(pop)*p['select_eliteRatio'])), nOffspring)
   for i in range(nElites):
     children.append(pop[i])
     nOffspring -= 1
