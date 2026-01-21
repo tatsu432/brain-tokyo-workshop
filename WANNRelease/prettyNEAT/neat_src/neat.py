@@ -66,6 +66,9 @@ class Neat():
   
   def initPop(self):
     """Initialize population with a list of random individuals
+    
+    FIXED: Now correctly sets output node activations from config.
+    This is critical for tasks like SlimeVolley that need tanh outputs.
     """
     ##  Create base individual
     p = self.p # readability
@@ -81,8 +84,17 @@ class Neat():
     node[1,(p['ann_nInput']+1):\
            (p['ann_nInput']+p['ann_nOutput']+1)]  = 2 # Output Nodes
     
-    # Node Activations
-    node[2,:] = p['ann_initAct']
+    # Node Activations - FIXED to use correct output activations
+    node[2,:] = p['ann_initAct']  # Default all to input activation (usually linear)
+    
+    # FIX: Set output node activations from config!
+    # This is critical for tasks that need non-linear outputs (e.g., tanh for SlimeVolley)
+    if 'ann_actOutput' in p:
+        out_start = p['ann_nInput'] + 1
+        out_end = out_start + p['ann_nOutput']
+        for i, act in enumerate(p['ann_actOutput']):
+            node[2, out_start + i] = act
+    
     # - Create Conns -
     nConn = (p['ann_nInput']+1) * p['ann_nOutput']
     ins   = np.arange(0,p['ann_nInput']+1,1)            # Input and Bias Ids
@@ -134,6 +146,10 @@ class Neat():
 
 def loadHyp(pFileName, printHyp=False):
   """Loads hyperparameters from .json file
+  
+  FIXED: Now stores output activations separately so they can be 
+  applied correctly during population initialization.
+  
   Args:
       pFileName - (string) - file name of hyperparameter file
       printHyp  - (bool)   - print contents of hyperparameter file to terminal?
@@ -146,10 +162,14 @@ def loadHyp(pFileName, printHyp=False):
   task = GymTask(games[hyp['task']],paramOnly=True)
   hyp['ann_nInput']   = task.nInput
   hyp['ann_nOutput']  = task.nOutput
-  hyp['ann_initAct']  = task.activations[0]
+  hyp['ann_initAct']  = task.activations[0]  # For bias/input nodes
   hyp['ann_absWCap']  = task.absWCap
   hyp['ann_mutSigma'] = task.absWCap * 0.2
   hyp['ann_layers']   = task.layers # if fixed toplogy is used 
+  
+  # FIX: Store output activations separately!
+  # This allows initPop() to set the correct activation for output nodes
+  hyp['ann_actOutput'] = task.activations[-task.nOutput:].tolist()
 
   if hyp['alg_act'] == 0:
     hyp['ann_actRange'] = task.actRange
@@ -164,6 +184,8 @@ def loadHyp(pFileName, printHyp=False):
 
 def updateHyp(hyp,pFileName=None):
   """Overwrites default hyperparameters with those from second .json file
+  
+  FIXED: Now stores output activations separately.
   """
   if pFileName != None:
     print('\t*** Running with hyperparameters: ', pFileName, '\t***')
@@ -174,19 +196,15 @@ def updateHyp(hyp,pFileName=None):
     task = GymTask(games[hyp['task']],paramOnly=True)
     hyp['ann_nInput']   = task.nInput
     hyp['ann_nOutput']  = task.nOutput
-    hyp['ann_initAct']  = task.activations[0]
+    hyp['ann_initAct']  = task.activations[0]  # For bias/input nodes
     hyp['ann_absWCap']  = task.absWCap
     hyp['ann_mutSigma'] = task.absWCap * 0.1
     hyp['ann_layers']   = task.layers # if fixed toplogy is used
-
+    
+    # FIX: Store output activations separately!
+    hyp['ann_actOutput'] = task.activations[-task.nOutput:].tolist()
 
     if hyp['alg_act'] == 0:
       hyp['ann_actRange'] = task.actRange
     else:
       hyp['ann_actRange'] = np.full_like(task.actRange,hyp['alg_act'])
-
-
-
-
-
-
