@@ -53,11 +53,16 @@ class DataGatherer():
     self.newBest = False
     
     # Action distribution tracking
-    # Each entry is [nOutput x n_bins] array showing action distribution
-    # Bins: [-inf, -0.5], (-0.5, 0], (0, 0.5], (0.5, inf]
+    # For continuous actions: [nOutput x n_bins] showing binned distribution
+    # For discrete actions: [nOutput] showing count per action
     self.action_dist_history: list[np.ndarray] = []
     self.action_bin_labels = ['<-0.5', '-0.5~0', '0~0.5', '>0.5']
     self.current_action_dist = None
+    self.is_discrete_action = False  # Will be set by caller
+    
+    # Labels for 6 discrete SlimeVolley actions
+    self.discrete_action_labels = ['L', 'S', 'R', 'LJ', 'SJ', 'RJ']
+    # L=left, S=stay, R=right, J=jump
 
   def gatherData(self, pop: list[Ind], species: Species, action_dist: np.ndarray = None) -> None:
     """Collect and stores run data
@@ -137,8 +142,6 @@ class DataGatherer():
   def display(self):
     """Console output for each generation
     """
-    # return    "|---| Elite Fit: " + '{:.2f}'.format(self.fit_max[-1]) \
-    #      + " \t|---| Best Fit:  "  + '{:.2f}'.format(self.fit_top[-1]) \
     output = "Elite Fit: " + '{:.2f}'.format(self.fit_max[-1]) \
          + " Best Fit:"  + '{:.2f}'.format(self.fit_top[-1]) \
          + " #Species:"  + str(int(self.num_species[-1])) \
@@ -147,11 +150,20 @@ class DataGatherer():
     
     # Add action distribution to display
     if self.current_action_dist is not None:
-      output += " | ActDist:"
-      for i, row in enumerate(self.current_action_dist):
-        # Format: Out0[25%,25%,25%,25%] for each output dimension
-        pcts = ['{:.0f}%'.format(v*100) for v in row]
-        output += " O{}[{}]".format(i, ','.join(pcts))
+      if self.is_discrete_action:
+        # Discrete actions: show distribution with action labels
+        # Format: L:15% S:10% R:20% LJ:25% SJ:15% RJ:15%
+        output += " | Actions:"
+        for i, pct in enumerate(self.current_action_dist):
+          label = self.discrete_action_labels[i] if i < len(self.discrete_action_labels) else f"A{i}"
+          output += " {}:{:.0f}%".format(label, pct*100)
+      else:
+        # Continuous actions: show binned distribution per output
+        output += " | ActDist:"
+        for i, row in enumerate(self.current_action_dist):
+          # Format: O0[25%,25%,25%,25%] for each output dimension
+          pcts = ['{:.0f}%'.format(v*100) for v in row]
+          output += " O{}[{}]".format(i, ','.join(pcts))
     
     return output
 
@@ -201,12 +213,15 @@ class DataGatherer():
     
     # --- Action Distribution History ----------------------------------------
     if len(self.action_dist_history) > 0:
-      # Save action distribution history as a flattened array
-      # Each row is: [gen, output_dim, bin0, bin1, bin2, bin3]
       action_dist_data = []
       for gen_idx, dist in enumerate(self.action_dist_history):
-        for out_idx, row in enumerate(dist):
-          action_dist_data.append([gen_idx, out_idx] + list(row))
+        if dist.ndim == 1:
+          # Discrete actions: [gen, action0_pct, action1_pct, ...]
+          action_dist_data.append([gen_idx] + list(dist))
+        else:
+          # Continuous actions: [gen, output_dim, bin0, bin1, bin2, bin3]
+          for out_idx, row in enumerate(dist):
+            action_dist_data.append([gen_idx, out_idx] + list(row))
       if action_dist_data:
         lsave(pref + '_action_dist.out', np.array(action_dist_data))
     # ------------------------------------------------------------------------

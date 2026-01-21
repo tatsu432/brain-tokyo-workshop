@@ -118,41 +118,40 @@ games['swingup'] = cartpole_swingup
 # -- Slime Volleyball ---------------------------------------------------- -- #
 
 # > Multi-agent volleyball game
-# V4 CRITICAL FIX: Use LINEAR outputs with CLIPPING (like SwingUp does!)
-#   - 2 outputs [horizontal, jump] to match action mapping
-#   - LINEAR activation (o_act=1) for good gradient flow
-#   - Action mapping clips outputs to [-1,1] to prevent saturation
-#   - This matches the working SwingUp pattern
+# V5 DISCRETE ACTIONS: Use 6 discrete outputs with probabilistic selection
+#   - 6 outputs representing all action combinations:
+#     [left+no_jump, stay+no_jump, right+no_jump, left+jump, stay+jump, right+jump]
+#   - 'prob' action selection: softmax → probabilistic sampling (good for exploration)
+#   - LINEAR activation for outputs (softmax handles normalization)
+#   - This avoids the threshold/saturation problems of continuous outputs
 slimevolley = Game(
   # env_name='SlimeVolley-v0' # Standard sparse rewards
   env_name='SlimeVolley-Shaped-v0', # Dense reward shaping (easier to learn)
-  actionSelect='all', # all, soft, hard
+  actionSelect='prob', # probabilistic selection from softmax (enables exploration)
   input_size=12,
-  output_size=2,  # 2 outputs [horizontal_movement, jump]
+  output_size=6,  # 6 discrete actions: (left/stay/right) x (no_jump/jump)
   time_factor=0,
-  layers=[8, 8],  # Simplified from [15, 10]
+  layers=[8, 8],
   i_act=np.full(12,1),
   h_act=[1,2,3,4,5,6,7,8,9,10],
-  o_act=np.full(2,5),  # Tanh (like SwingUp!) instead of LINEAR
+  o_act=np.full(6,1),  # LINEAR outputs - softmax handles normalization
   weightCap = 2.0,
   noise_bias=0.0,
-  output_noise=[False, False],
+  output_noise=[False]*6,
   max_episode_length = 3000,
   in_out_labels = ['agent_x','agent_y','agent_vx','agent_vy',
                    'ball_x','ball_y','ball_vx','ball_vy',
                    'opponent_x','opponent_y','opponent_vx','opponent_vy',
-                   'horizontal','jump']
+                   'left_no_jump','stay_no_jump','right_no_jump',
+                   'left_jump','stay_jump','right_jump']
 )
 games['slimevolley'] = slimevolley
 
 # > SlimeVolley with LARGE network (for harder learning)
-# If [8,8] is stuck, try much larger network
 slimevolley_large = slimevolley._replace(layers=[30, 30])
 games['slimevolley_large'] = slimevolley_large
 
-# > SlimeVolley with reward shaping (NOT RECOMMENDED - causes reward hacking)
-# Reward shaping creates false positive fitness by overwhelming real game rewards
-# Only use for initial exploration, then switch to non-shaped version
+# > SlimeVolley with reward shaping
 slimevolley_shaped = slimevolley._replace(env_name='SlimeVolley-Shaped-v0')
 games['slimevolley_shaped'] = slimevolley_shaped
 

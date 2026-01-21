@@ -32,6 +32,11 @@ def master():
   """
   global fileName, hyp
   data = DataGatherer(fileName, hyp)
+  
+  # Set discrete action flag based on task config
+  task_config = games[hyp['task']]
+  data.is_discrete_action = (task_config.actionSelect in ['prob', 'hard'])
+  
   neat = Neat(hyp)
 
   for gen in range(hyp['maxGen']):        
@@ -197,9 +202,18 @@ def batchMpiEval(pop: list[Ind], sameSeedForEachIndividual: bool = True, track_a
   
   # Normalize aggregated action distribution
   if track_actions and action_dist_agg is not None:
-    total = np.sum(action_dist_agg, axis=1, keepdims=True)
-    total[total == 0] = 1
-    action_dist_agg = action_dist_agg / total
+    # Handle both discrete (1D) and continuous (2D) action distributions
+    if action_dist_agg.ndim == 1:
+      # Discrete actions: 1D array [nActions]
+      total = np.sum(action_dist_agg)
+      if total == 0:
+        total = 1
+      action_dist_agg = action_dist_agg / total
+    else:
+      # Continuous actions: 2D array [nOutput x n_bins]
+      total = np.sum(action_dist_agg, axis=1, keepdims=True)
+      total[total == 0] = 1
+      action_dist_agg = action_dist_agg / total
     return reward, action_dist_agg
   
   return reward, None

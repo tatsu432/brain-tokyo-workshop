@@ -91,10 +91,44 @@ class SlimeVolleyShapedEnv(gym.Env):
             self.env.seed(seed)
         return [seed]
     
+    # Action mapping for 6 discrete actions:
+    # Index 0: left + no jump  → [forward=0, backward=1, jump=0]
+    # Index 1: stay + no jump  → [forward=0, backward=0, jump=0]
+    # Index 2: right + no jump → [forward=1, backward=0, jump=0]
+    # Index 3: left + jump     → [forward=0, backward=1, jump=1]
+    # Index 4: stay + jump     → [forward=0, backward=0, jump=1]
+    # Index 5: right + jump    → [forward=1, backward=0, jump=1]
+    DISCRETE_ACTION_MAP = [
+        [0, 1, 0],  # 0: left + no jump
+        [0, 0, 0],  # 1: stay + no jump
+        [1, 0, 0],  # 2: right + no jump
+        [0, 1, 1],  # 3: left + jump
+        [0, 0, 1],  # 4: stay + jump
+        [1, 0, 1],  # 5: right + jump
+    ]
+    
     def _process_action(self, action):
-        """Convert continuous NEAT output to binary actions"""
+        """Convert NEAT output to binary actions.
+        
+        Supports two modes:
+        1. Discrete mode (int): action is an index 0-5 from probabilistic selection
+        2. Continuous mode (array): action is continuous values with thresholds
+        """
+        # Handle discrete action index (from 'prob' actionSelect)
+        if isinstance(action, (int, np.integer)):
+            action_idx = int(action) % 6  # Ensure valid index
+            return np.array(self.DISCRETE_ACTION_MAP[action_idx], dtype=np.int8)
+        
+        # Handle continuous action (legacy mode or different actionSelect)
         action = np.array(action).flatten()
-        action = np.tanh(action)  # Ensure bounded even if linear output
+        
+        # If 6 outputs (discrete mode but passed as array), take argmax
+        if len(action) == 6:
+            action_idx = np.argmax(action)
+            return np.array(self.DISCRETE_ACTION_MAP[action_idx], dtype=np.int8)
+        
+        # Legacy 2-output continuous mode with thresholds
+        action = np.tanh(action)  # Ensure bounded
         
         if len(action) >= 2:
             if action[0] > 0.3:

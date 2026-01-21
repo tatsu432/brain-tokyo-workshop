@@ -40,7 +40,10 @@ class GymTask():
     # For continuous actions: track binned distribution per output dimension
     # Bins: [-inf, -0.5], (-0.5, 0], (0, 0.5], (0.5, inf]
     self.n_action_bins = 4
-    self.action_bin_edges = np.array([-np.inf, -0.5, 0.0, 0.5, np.inf])    
+    self.action_bin_edges = np.array([-np.inf, -0.5, 0.0, 0.5, np.inf])
+    
+    # For discrete actions (prob/hard selection): track distribution over action indices
+    self.is_discrete_action = (game.actionSelect in ['prob', 'hard'])    
   
   def getFitness(self, wVec, aVec, hyp=None, view=False, nRep=False, seed=-1, track_actions=False):
     """Get fitness of a single individual.
@@ -69,8 +72,13 @@ class GymTask():
     reward = np.empty(nRep)
     
     if track_actions:
-      # Initialize action distribution: [nOutput x n_action_bins]
-      action_dist = np.zeros((self.nOutput, self.n_action_bins))
+      # Initialize action distribution
+      if self.is_discrete_action:
+        # For discrete actions: track counts for each action index
+        action_dist = np.zeros(self.nOutput)  # [nOutput] - one count per action
+      else:
+        # For continuous actions: [nOutput x n_action_bins]
+        action_dist = np.zeros((self.nOutput, self.n_action_bins))
       
     for iRep in range(nRep):
       if track_actions:
@@ -84,9 +92,17 @@ class GymTask():
     
     if track_actions:
       # Normalize action distribution to get proportions
-      total_actions = np.sum(action_dist, axis=1, keepdims=True)
-      total_actions[total_actions == 0] = 1  # Avoid division by zero
-      action_dist = action_dist / total_actions
+      if self.is_discrete_action:
+        # For discrete: simple normalization over action counts
+        total_actions = np.sum(action_dist)
+        if total_actions == 0:
+          total_actions = 1
+        action_dist = action_dist / total_actions
+      else:
+        # For continuous: normalize each output dimension
+        total_actions = np.sum(action_dist, axis=1, keepdims=True)
+        total_actions[total_actions == 0] = 1  # Avoid division by zero
+        action_dist = action_dist / total_actions
       return fitness, action_dist
     
     return fitness
@@ -116,7 +132,10 @@ class GymTask():
     
     # Initialize action distribution tracking
     if track_actions:
-      action_dist = np.zeros((self.nOutput, self.n_action_bins))
+      if self.is_discrete_action:
+        action_dist = np.zeros(self.nOutput)  # [nOutput] - one count per action
+      else:
+        action_dist = np.zeros((self.nOutput, self.n_action_bins))
       
     state = self.env.reset()
     self.env.t = 0
@@ -169,25 +188,29 @@ class GymTask():
     """Update action distribution with new action.
     
     Args:
-      action_dist - (np_array) - current action distribution [nOutput x n_action_bins]
+      action_dist - (np_array) - current action distribution
+                    For discrete: [nOutput] - count per action index
+                    For continuous: [nOutput x n_action_bins]
       action      - (np_array or int) - action taken
       
     Returns:
       action_dist - (np_array) - updated action distribution
     """
-    action_arr = np.atleast_1d(action).flatten()
+    # Handle discrete action (integer index from 'prob' or 'hard' selection)
+    if self.is_discrete_action:
+      if isinstance(action, (int, np.integer)):
+        action_idx = int(action)
+      else:
+        # If array passed, treat as single value
+        action_idx = int(np.atleast_1d(action).flatten()[0])
+      if 0 <= action_idx < len(action_dist):
+        action_dist[action_idx] += 1
+      return action_dist
     
-    # Handle case where action is a single integer (discrete action)
-    if len(action_arr) == 1 and self.actSelect == 'prob':
-      # For discrete actions, treat as one-hot encoding
-      if action_arr[0] < self.nOutput:
-        # Map to middle bins based on action index
-        bin_idx = min(int(action_arr[0]), self.n_action_bins - 1)
-        action_dist[0, bin_idx] += 1
-    else:
-      # For continuous actions, bin each output dimension
-      for i, act_val in enumerate(action_arr[:self.nOutput]):
-        bin_idx = np.digitize(act_val, self.action_bin_edges[1:-1])
-        action_dist[i, bin_idx] += 1
+    # Handle continuous actions - bin each output dimension
+    action_arr = np.atleast_1d(action).flatten()
+    for i, act_val in enumerate(action_arr[:self.nOutput]):
+      bin_idx = np.digitize(act_val, self.action_bin_edges[1:-1])
+      action_dist[i, bin_idx] += 1
     
     return action_dist
