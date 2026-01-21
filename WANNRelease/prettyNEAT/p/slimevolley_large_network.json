@@ -1,7 +1,7 @@
 {
     "task": "slimevolley",
-    "maxGen": 256,
-    "popSize": 512,
+    "maxGen": 512,
+    "popSize": 256,
     "alg_nReps": 5,
     "alg_speciate": "neat",
     "alg_probMoo": 0.95,

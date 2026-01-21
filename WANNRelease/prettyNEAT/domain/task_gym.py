@@ -1,6 +1,7 @@
 import random
 import numpy as np
 import sys
+import time
 from domain.make_env import make_env
 from neat_src import *
 
@@ -156,6 +157,7 @@ class GymTask():
           self.env.render(close=done)  
         else:
           self.env.render()
+        time.sleep(0.02)  # ~50 FPS for smooth visualization
       if track_actions:
         return reward, action_dist
       return reward
@@ -177,6 +179,7 @@ class GymTask():
           self.env.render(close=done)  
         else:
           self.env.render()
+        time.sleep(0.02)  # ~50 FPS for smooth visualization
       if done:
         break
     

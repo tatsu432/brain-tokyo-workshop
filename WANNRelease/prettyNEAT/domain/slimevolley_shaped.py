@@ -157,19 +157,40 @@ class SlimeVolleyShapedEnv(gym.Env):
         """
         Compute dense shaping reward to guide learning.
         
-        Observation: [agent_x, agent_y, agent_vx, agent_vy,
-                      ball_x, ball_y, ball_vx, ball_vy,
-                      opp_x, opp_y, opp_vx, opp_vy]
+        Observation format (all values divided by scaleFactor=10.0 in slimevolleygym):
+        [agent_x, agent_y, agent_vx, agent_vy,
+         ball_x, ball_y, ball_vx, ball_vy,
+         opp_x, opp_y, opp_vx, opp_vy]
+        
+        CORRECT Scaled Ranges (after ÷10):
+        Index  Variable   Range           Notes
+        0      agent_x    [0.2, 2.25]     Always positive (agent sees self on right)
+        1      agent_y    [0.15, ~1.5]    Ground=0.15, max jump ~1.5
+        2      agent_vx   [-1.75, 1.75]   PLAYER_SPEED_X / 10
+        3      agent_vy   [-3, 1.35]      Gravity pulls down, jump up
+        4      ball_x     [-2.35, 2.35]   Negative = agent's side, Positive = opponent's side
+        5      ball_y     [0.2, 4.75]     Ground to ceiling
+        6      ball_vx    [-2.25, 2.25]   MAX_BALL_SPEED / 10
+        7      ball_vy    [-2.25, 2.25]   MAX_BALL_SPEED / 10
+        8      opp_x      [0.2, 2.25]     Always positive (mirrored)
+        9      opp_y      [0.15, ~1.5]    Same as agent
+        10     opp_vx     [-1.75, 1.75]   Mirrored velocity
+        11     opp_vy     [-3, 1.35]      Same as agent
+        
+        Key insight: ball_x < 0 means ball is on OUR side (we need to defend/hit it)
         """
         if prev_obs is None:
             return 0.0
         
+        # Extract current observations
         agent_x = obs[0]
+        agent_y = obs[1]
         ball_x = obs[4]
         ball_y = obs[5]
         ball_vx = obs[6]
         ball_vy = obs[7]
         
+        # Extract previous observations
         prev_agent_x = prev_obs[0]
         prev_ball_x = prev_obs[4]
         prev_ball_vx = prev_obs[6]
@@ -177,37 +198,116 @@ class SlimeVolleyShapedEnv(gym.Env):
         
         shaped_reward = 0.0
         
-        # 1. PROXIMITY REWARD: Being close to ball horizontally
-        dist_to_ball = abs(agent_x - ball_x)
-        if dist_to_ball < 0.2:
-            shaped_reward += 0.02  # Very close
-        elif dist_to_ball < 0.4:
-            shaped_reward += 0.01  # Close
+        # Determine if ball is on our side (negative x in transformed coordinates)
+        ball_on_our_side = ball_x < 0.0
         
-        # 2. PROGRESS REWARD: Moving toward ball
-        prev_dist = abs(prev_agent_x - ball_x)
-        if dist_to_ball < prev_dist:
-            shaped_reward += 0.01  # Getting closer
+        # Horizontal distance to ball (agent_x is always positive, ball_x can be negative)
+        dist_to_ball_x = abs(agent_x - ball_x)
         
-        # 3. HIT DETECTION: Ball velocity changed significantly
-        # This indicates the agent (or opponent) hit the ball
-        vx_change = abs(ball_vx - prev_ball_vx)
-        vy_change = abs(ball_vy - prev_ball_vy)
+        # Max possible horizontal distance is ~4.6 (agent at 2.25, ball at -2.35)
+        MAX_DIST_X = 4.6
         
-        if vx_change > 0.5 or vy_change > 0.5:
-            # Ball was hit - reward if agent was close
-            if dist_to_ball < 0.3:
-                shaped_reward += 0.05  # Likely our hit!
+        # =================================================================
+        # 1. HIT DETECTION (Primary reward - most important skill)
+        # =================================================================
+        # A successful hit is the core skill. Give strong reward.
+        # Detection: ball was on our side + velocity changed + agent was close
         
-        # 4. POSITION PENALTY: Don't hug the edges
-        if abs(agent_x) > 0.8:
+        ball_was_on_our_side = prev_ball_x < 0.0
+        
+        if ball_was_on_our_side:
+            # Detect hit via velocity change
+            vx_change = abs(ball_vx - prev_ball_vx)
+            vy_change = abs(ball_vy - prev_ball_vy)
+            
+            # Hit indicators:
+            # 1. vy flips from negative to positive (upward hit)
+            # 2. Significant velocity magnitude change
+            vy_flipped_up = (prev_ball_vy < -0.1) and (ball_vy > 0.1)
+            significant_change = (vx_change > 0.3) or (vy_change > 0.3)
+            
+            if vy_flipped_up or significant_change:
+                # Agent must have been close to cause the hit
+                # Use 2D distance for better accuracy
+                dist_2d = np.sqrt(dist_to_ball_x**2 + (agent_y - ball_y)**2)
+                HIT_THRESHOLD = 0.5  # (agent_r + ball_r) / 10 + margin
+                
+                if dist_2d < HIT_THRESHOLD:
+                    shaped_reward += 0.15  # Strong reward for hitting
+                    
+                    # Bonus for hitting toward opponent (offensive play)
+                    if ball_vx > 0.5:
+                        shaped_reward += 0.05
+        
+        # =================================================================
+        # 2. ANTICIPATION REWARD (move toward predicted ball position)
+        # =================================================================
+        # Instead of chasing current ball position, reward moving toward
+        # where the ball WILL BE. This is more strategic than ball chasing.
+        
+        if ball_on_our_side:
+            # Simple prediction: where will ball be in ~10 frames?
+            # ball_x + ball_vx * dt, but ball_vx is already velocity
+            LOOKAHEAD = 0.3  # seconds worth of prediction (scaled)
+            predicted_ball_x = ball_x + ball_vx * LOOKAHEAD
+            
+            # Clamp to valid range (ball can't go past walls)
+            predicted_ball_x = np.clip(predicted_ball_x, -2.35, 2.35)
+            
+            # Only reward if predicted position is still on our side
+            if predicted_ball_x < 0:
+                # Distance to predicted position
+                dist_to_predicted = abs(agent_x - predicted_ball_x)
+                prev_dist_to_predicted = abs(prev_agent_x - predicted_ball_x)
+                
+                # Reward for moving toward predicted position
+                improvement = prev_dist_to_predicted - dist_to_predicted
+                if improvement > 0:
+                    shaped_reward += 0.03 * min(improvement / 0.06, 1.0)
+        
+        # =================================================================
+        # 3. BALL APPROACHING AWARENESS (prepare when ball comes to us)
+        # =================================================================
+        # When ball is on opponent's side but coming toward us, start moving
+        # This replaces the static "defensive position" reward
+        
+        ball_coming_to_us = (ball_vx < -0.3)  # Ball moving toward our side
+        
+        if not ball_on_our_side and ball_coming_to_us:
+            # Predict where ball will cross into our side
+            # Rough estimate: ball needs to travel ball_x distance at ball_vx speed
+            if ball_vx < -0.1:  # Avoid division by near-zero
+                time_to_cross = -ball_x / (-ball_vx)  # Time until ball_x = 0
+                # Predict x position when it's at our hitting range
+                predicted_x_at_hit = ball_x + ball_vx * (time_to_cross + 0.2)
+                predicted_x_at_hit = np.clip(predicted_x_at_hit, -2.35, 0)
+                
+                # Reward being closer to predicted interception point
+                dist_to_intercept = abs(agent_x - abs(predicted_x_at_hit))
+                intercept_reward = 0.01 * np.exp(-2.0 * dist_to_intercept)
+                shaped_reward += intercept_reward
+        
+        # =================================================================
+        # 4. GROUNDED PENALTY (encourage jumping for high balls)
+        # =================================================================
+        # If ball is high and on our side, penalize staying on ground
+        # This encourages learning to jump
+        
+        if ball_on_our_side and ball_y > 0.8 and dist_to_ball_x < 1.5:
+            # Ball is high and we should be jumping
+            GROUND_LEVEL = 0.2
+            if agent_y < GROUND_LEVEL + 0.1:  # Agent is on/near ground
+                # Small penalty for not jumping when ball is high
+                shaped_reward -= 0.01
+        
+        # =================================================================
+        # 5. EXTREME EDGE PENALTY (only penalize being stuck at far wall)
+        # =================================================================
+        # Only penalize being at the far edge where agent can't return
+        # Don't penalize being near net - sometimes necessary for hits
+        
+        if agent_x > 2.1:  # Very close to back wall
             shaped_reward -= 0.02
-        
-        # 5. ENGAGEMENT: Ball is on our side and we're tracking it
-        # Agent is on left side (negative x), ball on left = our side
-        ball_on_our_side = (agent_x < 0 and ball_x < 0.1) or (agent_x > 0 and ball_x > -0.1)
-        if ball_on_our_side and dist_to_ball < 0.5:
-            shaped_reward += 0.01
         
         return shaped_reward * self.shaping_scale
     
