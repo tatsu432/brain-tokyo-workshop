@@ -12,5 +12,6 @@ dependencies = [
     "numpy>=2.4.1",
     "slimevolleygym>=0.1.0",
     "opencv-python>=4.8.0",
-    "gym>=0.26.0",
+    "gym==0.25.2",
+    "pyglet==1.5.27",
 ]

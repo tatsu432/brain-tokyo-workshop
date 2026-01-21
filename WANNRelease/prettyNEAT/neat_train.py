@@ -7,14 +7,23 @@ import subprocess
 import numpy as np
 np.set_printoptions(precision=2, linewidth=160) 
 
+from neat_src.ind import Ind
+
 # MPI
 from mpi4py import MPI
-comm = MPI.COMM_WORLD
+comm = MPI.COMM_WORLD # A communicator defines who can talk to whom.
 rank = comm.Get_rank()
+# Convention:
+# rank == 0 → master
+# rank > 0 → workers
 
 # prettyNeat
 from neat_src import * # NEAT
 from domain import *   # Task environments
+
+# 1 master + many workers
+# master: evolution logic
+# workers: evaluate fitness
 
 
 # -- Run NEAT ------------------------------------------------------------ -- #
@@ -27,10 +36,10 @@ def master():
 
   for gen in range(hyp['maxGen']):        
     pop = neat.ask()            # Get newly evolved individuals from NEAT  
-    reward = batchMpiEval(pop)  # Send pop to be evaluated by workers
+    reward, action_dist = batchMpiEval(pop, track_actions=True)  # Send pop to be evaluated by workers
     neat.tell(reward)           # Send fitness to NEAT    
 
-    data = gatherData(data,neat,gen,hyp)
+    data = gatherData(data,neat,gen,hyp,action_dist=action_dist)
     print(gen, '\t - \t', data.display())
 
   # Clean up and data gathering at run end
@@ -39,7 +48,7 @@ def master():
   data.savePop(neat.pop,fileName) # Save population as 2D numpy arrays
   stopAllWorkers()
 
-def gatherData(data,neat,gen,hyp,savePop=False):
+def gatherData(data,neat,gen,hyp,savePop=False,action_dist=None):
   """Collects run data, saves it to disk, and exports pickled population
 
   Args:
@@ -50,11 +59,12 @@ def gatherData(data,neat,gen,hyp,savePop=False):
     gen        - (ind)           - current generation
     hyp        - (dict)          - algorithm hyperparameters
     savePop    - (bool)          - save current population to disk?
+    action_dist - (np_array)     - aggregated action distribution [nOutput x n_bins]
 
   Return:
     data - (DataGatherer) - updated run data
   """
-  data.gatherData(neat.pop, neat.species)
+  data.gatherData(neat.pop, neat.species, action_dist=action_dist)
   if (gen%hyp['save_mod']) == 0:
     data = checkBest(data)
     data.save(gen)
@@ -86,7 +96,7 @@ def checkBest(data):
   if data.newBest is True:
     bestReps = max(hyp['bestReps'], (nWorker-1))
     rep = np.tile(data.best[-1], bestReps)
-    fitVector = batchMpiEval(rep, sameSeedForEachIndividual=False)
+    fitVector, _ = batchMpiEval(rep, sameSeedForEachIndividual=False, track_actions=False)
     trueFit = np.mean(fitVector)
     if trueFit > data.best[-2].fitness:  # Actually better!      
       data.best[-1].fitness = trueFit
@@ -100,7 +110,7 @@ def checkBest(data):
 
 
 # -- Parallelization ----------------------------------------------------- -- #
-def batchMpiEval(pop, sameSeedForEachIndividual=True):
+def batchMpiEval(pop: list[Ind], sameSeedForEachIndividual: bool = True, track_actions: bool = False) -> np.ndarray:
   """Sends population to workers for evaluation one batch at a time.
 
   Args:
@@ -109,10 +119,13 @@ def batchMpiEval(pop, sameSeedForEachIndividual=True):
               [N X N] 
       .aVec - (np_array) - activation function of each node
               [N X 1]
+    track_actions - (bool) - whether to track action distributions
 
   Return:
     reward  - (np_array) - fitness value of each individual
               [N X 1]
+    action_dist - (np_array) - aggregated action distribution (if track_actions=True)
+              [nOutput X n_bins]
 
   Todo:
     * Asynchronous evaluation instead of batches
@@ -129,6 +142,10 @@ def batchMpiEval(pop, sameSeedForEachIndividual=True):
     seed = np.random.randint(1000)
 
   reward = np.empty(nJobs, dtype=np.float64)
+  
+  # Initialize action distribution aggregator
+  action_dist_agg = None
+  
   i = 0 # Index of fitness we are filling
   for iBatch in range(nBatch): # Send one batch of individuals
     for iWork in range(nSlave): # (one to each worker if there)
@@ -138,6 +155,8 @@ def batchMpiEval(pop, sameSeedForEachIndividual=True):
         aVec   = pop[i].aVec.flatten()
         n_aVec = np.shape(aVec)[0]
 
+        # Why this structure?
+        # Because MPI needs to know array size first.
         comm.send(n_wVec, dest=(iWork)+1, tag=1)
         comm.Send(  wVec, dest=(iWork)+1, tag=2)
         comm.send(n_aVec, dest=(iWork)+1, tag=3)
@@ -145,7 +164,9 @@ def batchMpiEval(pop, sameSeedForEachIndividual=True):
         if sameSeedForEachIndividual is False:
           comm.send(seed.item(i), dest=(iWork)+1, tag=5)
         else:
-          comm.send(  seed, dest=(iWork)+1, tag=5)  
+          comm.send(  seed, dest=(iWork)+1, tag=5)
+        # Send track_actions flag
+        comm.send(track_actions, dest=(iWork)+1, tag=6)
 
       else: # message size of 0 is signal to shutdown workers
         n_wVec = 0
@@ -159,8 +180,29 @@ def batchMpiEval(pop, sameSeedForEachIndividual=True):
         workResult = np.empty(1, dtype='d')
         comm.Recv(workResult, source=iWork)
         reward[i] = workResult[0]
+        
+        # Receive action distribution if tracking
+        if track_actions:
+          # First receive the shape
+          action_dist_shape = comm.recv(source=iWork, tag=7)
+          action_dist = np.empty(action_dist_shape, dtype='d')
+          comm.Recv(action_dist, source=iWork, tag=8)
+          
+          # Aggregate action distributions
+          if action_dist_agg is None:
+            action_dist_agg = action_dist.copy()
+          else:
+            action_dist_agg += action_dist
       i+=1
-  return reward
+  
+  # Normalize aggregated action distribution
+  if track_actions and action_dist_agg is not None:
+    total = np.sum(action_dist_agg, axis=1, keepdims=True)
+    total[total == 0] = 1
+    action_dist_agg = action_dist_agg / total
+    return reward, action_dist_agg
+  
+  return reward, None
 
 def slave():
   """Evaluation process: evaluates networks sent from master process. 
@@ -173,9 +215,11 @@ def slave():
              [1 X N]    - stored as ints, see applyAct in ann.py
     n_aVec - (int)      - length of activation vector (N)
     seed   - (int)      - random seed (for consistency across workers)
+    track_actions - (bool) - whether to track action distributions
 
   PseudoReturn (sent to master):
     result - (float)    - fitness value of network
+    action_dist - (np_array) - action distribution (if track_actions=True)
   """
   global hyp  
   task = GymTask(games[hyp['task']], nReps=hyp['alg_nReps'])
@@ -191,9 +235,18 @@ def slave():
       aVec = np.empty(n_aVec, dtype='d')# allocate space to receive activation
       comm.Recv(aVec, source=0,  tag=4) # recieve it
       seed = comm.recv(source=0, tag=5) # random seed as int
+      track_actions = comm.recv(source=0, tag=6) # track actions flag
 
-      result = task.getFitness(wVec, aVec) # process it
-      comm.Send(result, dest=0)            # send it back
+      if track_actions:
+        fitness, action_dist = task.getFitness(wVec, aVec, track_actions=True) # process it
+        result = np.array([fitness])
+        comm.Send(result, dest=0)            # send fitness back
+        # Send action distribution
+        comm.send(action_dist.shape, dest=0, tag=7)
+        comm.Send(action_dist, dest=0, tag=8)
+      else:
+        result = task.getFitness(wVec, aVec) # process it
+        comm.Send(result, dest=0)            # send it back
 
     if n_wVec < 0: # End signal recieved
       print('Worker # ', rank, ' shutting down.')

@@ -53,6 +53,10 @@ def make_env(env_name, seed=-1, render_mode=False):
       env.dt = 0.01
       env.t_limit = 200
 
+  elif env_name == 'SlimeVolley-Shaped-v0':
+      from domain.slimevolley_shaped import SlimeVolleyShapedEnv
+      return SlimeVolleyShapedEnv()
+
   # -- Slime Volleyball ---------------------------------------------- -- #
   elif (env_name.startswith("SlimeVolley")):
     # Support different variants:

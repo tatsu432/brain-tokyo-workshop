@@ -123,7 +123,9 @@ games['swingup'] = cartpole_swingup
 #   - LINEAR activation (o_act=1) for good gradient flow
 #   - Action mapping clips outputs to [-1,1] to prevent saturation
 #   - This matches the working SwingUp pattern
-slimevolley = Game(env_name='SlimeVolley-v0',
+slimevolley = Game(
+  # env_name='SlimeVolley-v0' # Standard sparse rewards
+  env_name='SlimeVolley-Shaped-v0', # Dense reward shaping (easier to learn)
   actionSelect='all', # all, soft, hard
   input_size=12,
   output_size=2,  # 2 outputs [horizontal_movement, jump]
@@ -131,7 +133,7 @@ slimevolley = Game(env_name='SlimeVolley-v0',
   layers=[8, 8],  # Simplified from [15, 10]
   i_act=np.full(12,1),
   h_act=[1,2,3,4,5,6,7,8,9,10],
-  o_act=np.full(2,1),  # V4 FIX: LINEAR (like SwingUp!) instead of tanh
+  o_act=np.full(2,5),  # Tanh (like SwingUp!) instead of LINEAR
   weightCap = 2.0,
   noise_bias=0.0,
   output_noise=[False, False],

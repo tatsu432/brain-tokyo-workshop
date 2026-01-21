@@ -34,9 +34,15 @@ class GymTask():
       self.env = make_env(game.env_name)
     
     # Special needs...
-    self.needsClosed = (game.env_name.startswith("CartPoleSwingUp"))    
+    self.needsClosed = (game.env_name.startswith("CartPoleSwingUp"))
+    
+    # Action distribution tracking
+    # For continuous actions: track binned distribution per output dimension
+    # Bins: [-inf, -0.5], (-0.5, 0], (0, 0.5], (0.5, inf]
+    self.n_action_bins = 4
+    self.action_bin_edges = np.array([-np.inf, -0.5, 0.0, 0.5, np.inf])    
   
-  def getFitness(self, wVec, aVec, hyp=None, view=False, nRep=False, seed=-1):
+  def getFitness(self, wVec, aVec, hyp=None, view=False, nRep=False, seed=-1, track_actions=False):
     """Get fitness of a single individual.
   
     Args:
@@ -49,20 +55,43 @@ class GymTask():
       view    - (bool)     - view trial?
       nReps   - (nReps)    - number of trials to get average fitness
       seed    - (int)      - starting random seed for trials
+      track_actions - (bool) - track action distribution?
   
     Returns:
       fitness - (float)    - mean reward over all trials
+      OR (if track_actions=True):
+      (fitness, action_dist) - tuple with fitness and action distribution
+        action_dist - (np_array) - binned action distribution [nOutput x n_action_bins]
     """
     if nRep is False:
       nRep = self.nReps
     wVec[np.isnan(wVec)] = 0
     reward = np.empty(nRep)
+    
+    if track_actions:
+      # Initialize action distribution: [nOutput x n_action_bins]
+      action_dist = np.zeros((self.nOutput, self.n_action_bins))
+      
     for iRep in range(nRep):
-      reward[iRep] = self.testInd(wVec, aVec, view=view, seed=seed+iRep)
+      if track_actions:
+        rep_reward, rep_action_dist = self.testInd(wVec, aVec, view=view, seed=seed+iRep, track_actions=True)
+        reward[iRep] = rep_reward
+        action_dist += rep_action_dist
+      else:
+        reward[iRep] = self.testInd(wVec, aVec, view=view, seed=seed+iRep)
+    
     fitness = np.mean(reward)
+    
+    if track_actions:
+      # Normalize action distribution to get proportions
+      total_actions = np.sum(action_dist, axis=1, keepdims=True)
+      total_actions[total_actions == 0] = 1  # Avoid division by zero
+      action_dist = action_dist / total_actions
+      return fitness, action_dist
+    
     return fitness
 
-  def testInd(self, wVec, aVec, view=False,seed=-1):
+  def testInd(self, wVec, aVec, view=False, seed=-1, track_actions=False):
     """Evaluate individual on task
     Args:
       wVec    - (np_array) - weight matrix as a flattened vector
@@ -73,18 +102,30 @@ class GymTask():
     Optional:
       view    - (bool)     - view trial?
       seed    - (int)      - starting random seed for trials
+      track_actions - (bool) - track action distribution?
   
     Returns:
       fitness - (float)    - reward earned in trial
+      OR (if track_actions=True):
+      (fitness, action_dist) - tuple with fitness and action distribution
     """
     if seed >= 0:
       random.seed(seed)
       np.random.seed(seed)
       self.env.seed(seed)
+    
+    # Initialize action distribution tracking
+    if track_actions:
+      action_dist = np.zeros((self.nOutput, self.n_action_bins))
+      
     state = self.env.reset()
     self.env.t = 0
     annOut = act(wVec, aVec, self.nInput, self.nOutput, state)  
-    action = selectAct(annOut,self.actSelect)    
+    action = selectAct(annOut,self.actSelect)
+    
+    # Track action distribution
+    if track_actions:
+      action_dist = self._update_action_dist(action_dist, action)
    
     wVec[wVec!=0]
     predName = str(np.mean(wVec[wVec!=0]))
@@ -96,13 +137,20 @@ class GymTask():
           self.env.render(close=done)  
         else:
           self.env.render()
+      if track_actions:
+        return reward, action_dist
       return reward
     else:
       totalReward = reward
     
     for tStep in range(self.maxEpisodeLength): 
       annOut = act(wVec, aVec, self.nInput, self.nOutput, state) 
-      action = selectAct(annOut,self.actSelect) 
+      action = selectAct(annOut,self.actSelect)
+      
+      # Track action distribution
+      if track_actions:
+        action_dist = self._update_action_dist(action_dist, action)
+        
       state, reward, done, info = self.env.step(action)
       totalReward += reward  
       if view:
@@ -112,4 +160,34 @@ class GymTask():
           self.env.render()
       if done:
         break
+    
+    if track_actions:
+      return totalReward, action_dist
     return totalReward
+  
+  def _update_action_dist(self, action_dist, action):
+    """Update action distribution with new action.
+    
+    Args:
+      action_dist - (np_array) - current action distribution [nOutput x n_action_bins]
+      action      - (np_array or int) - action taken
+      
+    Returns:
+      action_dist - (np_array) - updated action distribution
+    """
+    action_arr = np.atleast_1d(action).flatten()
+    
+    # Handle case where action is a single integer (discrete action)
+    if len(action_arr) == 1 and self.actSelect == 'prob':
+      # For discrete actions, treat as one-hot encoding
+      if action_arr[0] < self.nOutput:
+        # Map to middle bins based on action index
+        bin_idx = min(int(action_arr[0]), self.n_action_bins - 1)
+        action_dist[0, bin_idx] += 1
+    else:
+      # For continuous actions, bin each output dimension
+      for i, act_val in enumerate(action_arr[:self.nOutput]):
+        bin_idx = np.digitize(act_val, self.action_bin_edges[1:-1])
+        action_dist[i, bin_idx] += 1
+    
+    return action_dist
