@@ -281,23 +281,23 @@ class DataGatherer:
         if cfg["show_elite_total"] or cfg["show_elite_raw"]:
             elite_str = "Elite:"
             if cfg["show_elite_total"]:
-                elite_str += " T={:.2f}".format(self.fit_max[-1])
+                elite_str += " T={:>6.2f}".format(self.fit_max[-1])
             if cfg["show_elite_raw"] and self.current_elite_raw_fitness is not None:
-                elite_str += " R={:.2f}".format(self.current_elite_raw_fitness)
+                elite_str += " R={:>6.2f}".format(self.current_elite_raw_fitness)
             parts.append(elite_str)
 
         # --- Best fitness (best across all generations) ---
         if cfg["show_best_total"] or cfg["show_best_raw"]:
             best_str = "Best:"
             if cfg["show_best_total"]:
-                best_str += " T={:.2f}".format(self.fit_top[-1])
+                best_str += " T={:>6.2f}".format(self.fit_top[-1])
             if cfg["show_best_raw"] and self.current_best_raw_fitness is not None:
-                best_str += " R={:.2f}".format(self.current_best_raw_fitness)
+                best_str += " R={:>6.2f}".format(self.current_best_raw_fitness)
             parts.append(best_str)
 
         # --- Species count ---
         if cfg["show_species"]:
-            parts.append("#Sp:{}".format(int(self.num_species[-1])))
+            parts.append("#Sp:{:2d}".format(int(self.num_species[-1])))
 
         # --- Complexity (node/conn) ---
         if cfg["show_complexity"]:
@@ -346,7 +346,7 @@ class DataGatherer:
                         if i < len(self.discrete_action_labels)
                         else f"A{i}"
                     )
-                    output += " {}:{:.0f}%".format(label, pct * 100)
+                    output += " {}:{:2d}%".format(label, int(pct * 100))
             else:
                 # Continuous actions: show binned distribution per output
                 output += " | ActDist:"

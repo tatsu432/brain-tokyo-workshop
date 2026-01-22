@@ -14,7 +14,21 @@ if sys.platform == "darwin":
     # The warning is harmless but annoying, so we'll let pygame's SDL2 take precedence
     pass
 
+import logging
+import sys
 
+# Configure root logger with basicConfig (only if not already configured)
+if not logging.root.handlers:
+    logging.basicConfig(
+        level=logging.INFO,
+        format='[%(name)s] %(message)s',
+        stream=sys.stdout,
+        force=True  # Override any existing configuration
+    )
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+    
 class FilteredStderr:
     """Custom stderr filter to suppress gym deprecation warnings."""
     
@@ -154,7 +168,7 @@ def master():
     # Check for verbose mode via environment variable
     verbose = os.environ.get("NEAT_VERBOSE", "0") == "1"
     if verbose:
-        print("[Master] Verbose mode ENABLED", flush=True)
+        logger.info("[Master] Verbose mode ENABLED")
 
     # Set discrete action flag based on task config
     task_config = games[hyp["task"]]
@@ -180,7 +194,7 @@ def master():
             max_steps=render_max_steps,
             enabled=True,
         )
-        print(
+        logger.info(
             f"Rendering ENABLED: every {render_interval} generations @ {render_fps} FPS"
         )
     else:
@@ -194,7 +208,7 @@ def master():
     curriculum_stage = "touch" if enable_curriculum else None
 
     if selfplay_config.enabled:
-        print("Self-play mode ENABLED")
+        logger.info("Self-play mode ENABLED")
         selfplay_config.eval_mode = hyp.get("selfplay_eval_mode", "mixed")
         selfplay_config.baseline_weight = hyp.get("selfplay_baseline_weight", 0.6)
         selfplay_config.archive_weight = hyp.get("selfplay_archive_weight", 0.4)
@@ -218,7 +232,7 @@ def master():
                 "archive_size": [],
             }
     elif enable_curriculum:
-        print("Curriculum learning ENABLED (non-self-play)")
+        logger.info("Curriculum learning ENABLED (non-self-play)")
         # Initialize curriculum stats for non-self-play
         if not hasattr(data, "curriculum_stats"):
             data.curriculum_stats = {
@@ -232,7 +246,7 @@ def master():
 
     for gen in range(hyp["maxGen"]):
         if verbose:
-            print(f"\n[Master] ===== Generation {gen} =====", flush=True)
+            logger.info(f"[Master] ===== Generation {gen} =====")
 
         pop = neat.ask()  # Get newly evolved individuals from NEAT
 
@@ -253,8 +267,8 @@ def master():
                 best_fitness = reward[best_idx]
 
                 if verbose:
-                    print(
-                        f"[Master] Gen {gen}: Checking archive add (best_fitness={best_fitness:.2f}, threshold={selfplay_config.archive_fitness_threshold})",
+                    logger.info(
+                        f"[Master] Gen {gen:4d}: Checking archive add (best_fitness={best_fitness:.2f}, threshold={selfplay_config.archive_fitness_threshold})",
                         flush=True,
                     )
 
@@ -264,7 +278,7 @@ def master():
                     aVec_to_add = best_ind.aVec.flatten()
 
                     if verbose:
-                        print(
+                        logger.info(
                             f"[Master] Adding to archive: wVec shape={wVec_to_add.shape}, aVec shape={aVec_to_add.shape}",
                             flush=True,
                         )
@@ -323,17 +337,17 @@ def master():
         # Display with curriculum/self-play info
         enable_curriculum = hyp.get("enable_curriculum", False)
         if selfplay_config.enabled:
-            print(
-                f"Gen {gen}: {data.display()} | Stage: {curriculum_stage}, Archive: {len(opponent_archive)}"
+            logger.info(
+                f"Gen {gen:4d}: {data.display()} | Stage: {curriculum_stage}, Archive: {len(opponent_archive)}"
             )
         elif enable_curriculum:
             # Show curriculum stage for non-self-play
             if "curriculum_stage" in locals():
-                print(f"Gen {gen}: {data.display()} | Stage: {curriculum_stage}")
+                logger.info(f"Gen {gen:4d}: {data.display()} | Stage: {curriculum_stage}")
             else:
-                print(f"Gen {gen}: {data.display()}")
+                logger.info(f"Gen {gen:4d}: {data.display()}")
         else:
-            print(f"Gen {gen}: {data.display()}")
+            logger.info(f"Gen {gen:4d}: {data.display()}")
 
         # Trigger non-blocking rendering of best individual (for both self-play and non-self-play)
         if render_manager is not None and render_manager.should_render(gen):
@@ -369,7 +383,7 @@ def master():
 
     # Clean up render manager
     if render_manager is not None:
-        print("Waiting for render to finish...")
+        logger.debug("Waiting for render to finish...")
         render_manager.wait_for_render(timeout=10.0)
         render_manager.stop()
 
@@ -399,14 +413,14 @@ def update_curriculum(pop_stats, current_stage):
 
     if current_stage == "touch":
         if avg_touches >= touch_threshold:
-            print(
+            logger.info(
                 f"Curriculum: Advancing from 'touch' to 'rally' (avg_touches={avg_touches:.1f})"
             )
             return "rally"
 
     elif current_stage == "rally":
         if avg_rally_diff >= rally_threshold:
-            print(
+            logger.info(
                 f"Curriculum: Advancing from 'rally' to 'win' (rally_diff={avg_rally_diff:.1f})"
             )
             return "win"
@@ -453,7 +467,7 @@ def broadcast_archive():
 
     verbose = os.environ.get("NEAT_VERBOSE", "0") == "1"
     if verbose:
-        print(
+        logger.debug(
             f"[Master] Broadcasting archive (size={len(opponent_archive)}) to {nSlave} workers...",
             flush=True,
         )

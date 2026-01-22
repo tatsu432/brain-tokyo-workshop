@@ -59,7 +59,7 @@ try:
         from domain.slimevolley_rendering_patch import apply_rendering_patch
 
         apply_rendering_patch()
-        logger.info("Applied slimevolleygym rendering patch")
+        logger.debug("Applied slimevolleygym rendering patch")
     except Exception as e:
         logger.warning(f"Could not apply rendering patch: {e}")
 
@@ -67,7 +67,7 @@ try:
 except ImportError:
     SLIMEVOLLEY_AVAILABLE = False
     old_gym = None
-    print(
+    logger.warning(
         "Warning: slimevolleygym not installed. Install with: pip install slimevolleygym"
     )
 
@@ -242,7 +242,6 @@ class BaseSlimeVolleyEnv(gym.Env):
         except Exception as e:
             if not self._render_warning_shown:
                 logger.warning(f"Rendering error: {e}")
-                print(f"Warning: Rendering error: {e}")
                 self._render_warning_shown = True
             return None
 

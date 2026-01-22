@@ -41,6 +41,47 @@ warnings.filterwarnings("ignore", message=".*upgrade to Gymnasium.*")
 warnings.filterwarnings("ignore", message=".*contact the authors.*")
 warnings.filterwarnings("ignore", message=".*migration guide.*")
 
+
+class FilteredStderr:
+    """
+    Custom stderr wrapper that filters out Gym deprecation warnings.
+    
+    The old gym package prints warnings directly to stderr, bypassing Python's
+    warnings system. This class intercepts those writes and filters them out.
+    """
+    def __init__(self, original_stderr):
+        self.original_stderr = original_stderr
+        # Copy attributes from original stderr
+        for attr in ['mode', 'encoding', 'errors', 'newlines', 'line_buffering', 'write_through']:
+            if hasattr(original_stderr, attr):
+                setattr(self, attr, getattr(original_stderr, attr))
+    
+    def write(self, text):
+        # Filter out gym deprecation warnings
+        if "Gym has been unmaintained" in text:
+            return len(text)  # Pretend we wrote it
+        if "does not support NumPy 2.0" in text:
+            return len(text)
+        if "upgrade to Gymnasium" in text:
+            return len(text)
+        if "migration guide" in text.lower():
+            return len(text)
+        if "contact the authors" in text.lower():
+            return len(text)
+        # Write everything else to original stderr
+        return self.original_stderr.write(text)
+    
+    def flush(self):
+        return self.original_stderr.flush()
+    
+    def close(self):
+        return self.original_stderr.close()
+    
+    def __getattr__(self, name):
+        # Delegate all other attributes to original stderr
+        return getattr(self.original_stderr, name)
+
+
 # Set up logger for render operations (defaults to INFO level, DEBUG messages hidden)
 logger = logging.getLogger(__name__)
 if not logger.handlers:
@@ -126,9 +167,18 @@ def _render_episode(
     # Suppress pygame welcome message
     os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 
-    # Force stdout/stderr to be unbuffered
+    # Force stdout to be unbuffered
     sys.stdout = os.fdopen(sys.stdout.fileno(), "w", buffering=1)
-    sys.stderr = os.fdopen(sys.stderr.fileno(), "w", buffering=1)
+    # Ensure stderr filter is active and unbuffered
+    # The filter intercepts Gym warnings that are printed directly to stderr
+    # Get the original stderr (unwrap filter if present)
+    if isinstance(sys.stderr, FilteredStderr):
+        original_stderr = sys.stderr.original_stderr
+    else:
+        original_stderr = sys.stderr
+    # Make stderr unbuffered and wrap with filter
+    unbuffered_stderr = os.fdopen(original_stderr.fileno(), "w", buffering=1)
+    sys.stderr = FilteredStderr(unbuffered_stderr)
 
     logger.debug(f"Starting render for generation {generation}")
 
@@ -615,6 +665,10 @@ if __name__ == "__main__":
     2. As a test script (no arguments)
     """
     import argparse
+
+    # Install stderr filter to suppress Gym warnings (must be done before any imports that use gym)
+    _original_stderr = sys.stderr
+    sys.stderr = FilteredStderr(_original_stderr)
 
     # Add parent directory to path for imports
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
