@@ -29,8 +29,17 @@ import tempfile
 import traceback
 import subprocess
 import logging
+import warnings
 import numpy as np
 from typing import Optional, List, Tuple
+
+# Suppress Gym/NumPy 2.0 compatibility warnings
+# These warnings appear when slimevolleygym imports the old gym package
+warnings.filterwarnings("ignore", message=".*Gym has been unmaintained.*")
+warnings.filterwarnings("ignore", message=".*does not support NumPy 2.0.*")
+warnings.filterwarnings("ignore", message=".*upgrade to Gymnasium.*")
+warnings.filterwarnings("ignore", message=".*contact the authors.*")
+warnings.filterwarnings("ignore", message=".*migration guide.*")
 
 # Set up logger for render operations (defaults to INFO level, DEBUG messages hidden)
 logger = logging.getLogger(__name__)
@@ -124,9 +133,12 @@ def _render_episode(
     logger.debug(f"Starting render for generation {generation}")
 
     # Import slimevolleygym directly to ensure pygame is initialized
+    # Suppress warnings during import to avoid Gym/NumPy 2.0 compatibility messages
     try:
-        import slimevolleygym
-        from slimevolleygym.slimevolley import SlimeVolleyEnv
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            import slimevolleygym
+            from slimevolleygym.slimevolley import SlimeVolleyEnv
 
         logger.debug("SlimeVolley imported successfully")
     except ImportError as e:
@@ -165,16 +177,6 @@ def _render_episode(
         opponent_wVec[np.isinf(opponent_wVec)] = 0
         opponent_aVec = np.copy(opponent_aVec)
         opponent_aVec[np.isnan(opponent_aVec)] = 0
-
-    # Print info
-    print(f"\n{'='*50}", flush=True)
-    print(f"RENDERING: {title_prefix} {generation}", flush=True)
-    print(
-        f"Agent vs {'Archived Opponent' if opponent_data else 'Baseline'}", flush=True
-    )
-    print(f"Close the window or press Ctrl+C to stop", flush=True)
-    print(f"{'='*50}\n", flush=True)
-
     # Run episode
     state = env.reset()
 
@@ -251,12 +253,15 @@ def _render_episode(
     except Exception as e:
         logger.error(f"Error during episode: {e}", exc_info=True)
 
-    # Print final stats
-    print(f"\n{'='*50}", flush=True)
-    print(f"EPISODE FINISHED", flush=True)
-    print(f"Total Reward: {total_reward:.2f}", flush=True)
-    print(f"Steps: {step + 1}", flush=True)
-    print(f"{'='*50}\n", flush=True)
+    # # Print final stats
+    # print(f"\n{'='*50}", flush=True)
+    # print(f"RENDERED EPISODE: {title_prefix} {generation}", flush=True)
+    # print(
+    #     f"Agent vs {'Archived Opponent' if opponent_data else 'Baseline'}", flush=True
+    # )
+    # print(f"Total Reward: {total_reward:.2f}", flush=True)
+    # print(f"Steps: {step + 1}", flush=True)
+    # print(f"{'='*50}\n", flush=True)
 
     # Keep window open briefly so user can see final state
     time.sleep(2.0)

@@ -7,6 +7,9 @@ from domain import *  # Task environments
 from utils import *
 from .nsga_sort import nsga_sort
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 class Neat:
     """NEAT main class. Evolves population given fitness values of individuals."""
@@ -195,7 +198,7 @@ def updateHyp(hyp, pFileName=None):
     FIXED: Now stores output activations separately.
     """
     if pFileName != None:
-        print("\t*** Running with hyperparameters: ", pFileName, "\t***")
+        logger.debug("\t*** Running with hyperparameters: ", pFileName, "\t***")
         with open(pFileName) as data_file:
             update = json.load(data_file)
         hyp.update(update)
