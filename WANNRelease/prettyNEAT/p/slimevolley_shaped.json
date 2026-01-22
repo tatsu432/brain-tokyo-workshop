@@ -25,5 +25,16 @@
     "spec_geneCoef": 1,
     "spec_weightCoef": 0.5,
     "save_mod": 16,
-    "bestReps": 50
+    "bestReps": 50,
+    
+    "_comment_display": "Display configuration - toggle which metrics to show",
+    "display_config": {
+        "show_elite_total": true,
+        "show_elite_raw": true,
+        "show_best_total": true,
+        "show_best_raw": true,
+        "show_species": true,
+        "show_complexity": true,
+        "show_actions": true
+    }
 }

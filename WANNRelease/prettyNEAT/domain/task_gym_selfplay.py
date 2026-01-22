@@ -321,6 +321,14 @@ class SelfPlayGymTask:
         Returns weighted combination of:
         1. Performance against baseline opponent
         2. Performance against archived opponents
+        
+        Returns:
+            fitness - (float) - total fitness (actual + shaped reward)
+            OR (if track_actions=True):
+            (fitness, action_dist, raw_fitness) - tuple with:
+              fitness     - (float)    - total fitness (actual + shaped)
+              action_dist - (np_array) - action distribution
+              raw_fitness - (float)    - raw fitness (actual game reward only)
         """
         if nRep is None:
             nRep = self.nReps
@@ -339,6 +347,7 @@ class SelfPlayGymTask:
         # Collect episode statistics
         all_stats = []
         rewards = []
+        raw_rewards = []  # Track raw (unshaped) rewards
         
         # Determine evaluation setup
         if self.eval_mode == self.BASELINE_ONLY or not self.archive:
@@ -378,12 +387,13 @@ class SelfPlayGymTask:
                 print(f"  [getFitness] Completed baseline episode {i+1}/{baseline_reps}", flush=True)
             
             if track_actions:
-                reward, ep_action_dist, stats = result
+                reward, ep_action_dist, stats, raw_reward = result
                 action_dist += ep_action_dist
             else:
-                reward, stats = result
+                reward, stats, raw_reward = result
             
             rewards.append(reward)
+            raw_rewards.append(raw_reward)
             all_stats.append(stats)
         
         # Evaluate against archive opponents
@@ -409,23 +419,29 @@ class SelfPlayGymTask:
                     print(f"  [getFitness] Completed archive episode {i+1}/{len(archive_opponents)}", flush=True)
                 
                 if track_actions:
-                    reward, ep_action_dist, stats = result
+                    reward, ep_action_dist, stats, raw_reward = result
                     action_dist += ep_action_dist
                 else:
-                    reward, stats = result
+                    reward, stats, raw_reward = result
                 
                 rewards.append(reward)
+                raw_rewards.append(raw_reward)
                 all_stats.append(stats)
         
-        # Compute weighted fitness
+        # Compute weighted fitness (both total and raw)
         if archive_reps > 0:
             baseline_fitness = np.mean(rewards[:baseline_reps]) if baseline_reps > 0 else 0
             archive_fitness = np.mean(rewards[baseline_reps:])
-            
             fitness = (self.baseline_weight * baseline_fitness + 
                       self.archive_weight * archive_fitness)
+            
+            baseline_raw_fitness = np.mean(raw_rewards[:baseline_reps]) if baseline_reps > 0 else 0
+            archive_raw_fitness = np.mean(raw_rewards[baseline_reps:])
+            raw_fitness = (self.baseline_weight * baseline_raw_fitness + 
+                          self.archive_weight * archive_raw_fitness)
         else:
             fitness = np.mean(rewards)
+            raw_fitness = np.mean(raw_rewards)
         
         # Normalize action distribution
         if track_actions and action_dist is not None:
@@ -438,7 +454,7 @@ class SelfPlayGymTask:
                 action_dist = action_dist / total
         
         if track_actions:
-            return fitness, action_dist
+            return fitness, action_dist, raw_fitness
         return fitness
     
     def _evaluate_episode(
@@ -450,7 +466,7 @@ class SelfPlayGymTask:
         seed: int = -1,
         track_actions: bool = False,
         debug: bool = False
-    ) -> Tuple[float, Any, Dict]:
+    ) -> Tuple[float, Any, Dict, float]:
         """
         Evaluate a single episode.
         
@@ -462,8 +478,8 @@ class SelfPlayGymTask:
             track_actions: Track action distribution
             
         Returns:
-            (reward, action_dist, episode_stats) if track_actions
-            (reward, episode_stats) otherwise
+            (reward, action_dist, episode_stats, raw_reward) if track_actions
+            (reward, episode_stats, raw_reward) otherwise
         """
         if seed >= 0:
             random.seed(seed)
@@ -477,6 +493,9 @@ class SelfPlayGymTask:
                 action_dist = np.zeros(self.nOutput)
             else:
                 action_dist = np.zeros((self.nOutput, self.n_action_bins))
+        
+        # Track raw (unshaped) reward separately
+        totalRawReward = 0.0
         
         # Reset environment and opponent
         try:
@@ -516,6 +535,9 @@ class SelfPlayGymTask:
             raise
         
         totalReward = reward
+        # Extract raw game reward if available (for shaped environments)
+        raw_reward = info.get('game_reward', reward)
+        totalRawReward += raw_reward
         
         if view:
             self.env.render()
@@ -553,6 +575,9 @@ class SelfPlayGymTask:
                 raise
             
             totalReward += reward
+            # Extract raw game reward if available
+            raw_reward = info.get('game_reward', reward)
+            totalRawReward += raw_reward
             
             if view:
                 self.env.render()
@@ -566,8 +591,8 @@ class SelfPlayGymTask:
         episode_stats = info.get('episode_stats', {})
         
         if track_actions:
-            return totalReward, action_dist, episode_stats
-        return totalReward, episode_stats
+            return totalReward, action_dist, episode_stats, totalRawReward
+        return totalReward, episode_stats, totalRawReward
     
     def _get_opponent_obs(self, state: np.ndarray, info: Optional[Dict] = None) -> np.ndarray:
         """

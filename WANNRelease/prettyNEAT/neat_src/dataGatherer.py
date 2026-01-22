@@ -18,6 +18,10 @@ class DataGatherer():
     - fit_top: best-so-far fitness per generation (best fitness across history)
     - node_med: median number of nodes per generation
     - conn_med: median number of connections per generation
+    
+    Raw fitness (actual game reward without shaping):
+    - fit_max_raw: elite raw fitness per generation
+    - fit_top_raw: best-so-far raw fitness per generation
 
     Optional extras:
     - spec_fit: per-individual fitness labeled by species id (for NEAT speciation visualization)
@@ -52,6 +56,25 @@ class DataGatherer():
 
     self.newBest = False
     
+    # Raw fitness tracking (actual game reward without shaping)
+    self.fit_max_raw = np.array([])  # Elite raw fitness per generation
+    self.fit_top_raw = np.array([])  # Best-so-far raw fitness per generation
+    self.elite_raw_fitness = []      # Raw fitness history for each elite
+    self.best_raw_fitness = []       # Raw fitness history for each best
+    self.current_elite_raw_fitness = None  # Current generation's elite raw fitness
+    self.current_best_raw_fitness = None   # Current best raw fitness
+    
+    # Display configuration (can be toggled)
+    self.display_config = {
+      'show_elite_total': True,      # Show elite total fitness (shaped)
+      'show_elite_raw': True,        # Show elite raw fitness (actual)
+      'show_best_total': True,       # Show best total fitness (shaped)
+      'show_best_raw': True,         # Show best raw fitness (actual)
+      'show_species': True,          # Show species count
+      'show_complexity': True,       # Show node/conn counts
+      'show_actions': True,          # Show action distribution
+    }
+    
     # Action distribution tracking
     # For continuous actions: [nOutput x n_bins] showing binned distribution
     # For discrete actions: [nOutput] showing count per action
@@ -64,7 +87,8 @@ class DataGatherer():
     self.discrete_action_labels = ['L', 'S', 'R', 'LJ', 'SJ', 'RJ']
     # L=left, S=stay, R=right, J=jump
 
-  def gatherData(self, pop: list[Ind], species: Species, action_dist: np.ndarray = None) -> None:
+  def gatherData(self, pop: list[Ind], species: Species, action_dist: np.ndarray = None, 
+                 raw_fitness: np.ndarray = None) -> None:
     """Collect and stores run data
     This is called once per generation (or once per "iteration" of the algorithm).
     
@@ -72,12 +96,18 @@ class DataGatherer():
       pop         - [Ind]      - list of individuals in population
       species     - (Species)  - current species
       action_dist - (np_array) - aggregated action distribution [nOutput x n_bins]
+      raw_fitness - (np_array) - raw fitness (actual game reward) for each individual
+                    If None, raw fitness is assumed to equal total fitness (no shaping)
     """
 
     # Readability
     fitness = [ind.fitness for ind in pop]
     nodes = np.asarray([np.shape(ind.node)[1] for ind in pop]) # Number of nodes in the individual
     conns = np.asarray([ind.nConn for ind in pop]) # Number of connections in the individual
+    
+    # Handle raw fitness - if not provided, use total fitness
+    if raw_fitness is None:
+      raw_fitness = np.array(fitness)
     
     # --- Evaluation Scale ---------------------------------------------------
     # it's not the generation index. It's like an x-axis for learning curves in terms of evaluations.
@@ -88,8 +118,9 @@ class DataGatherer():
     # ------------------------------------------------------------------------ 
 
     
-    # --- Best Individual ----------------------------------------------------
-    self.elite.append(pop[np.argmax(fitness)])
+    # --- Best Individual (total fitness) ------------------------------------
+    elite_idx = np.argmax(fitness)
+    self.elite.append(pop[elite_idx])
     if len(self.best) == 0:
       self.best.append(copy.deepcopy(self.elite[-1]))
     elif (self.elite[-1].fitness > self.best[-1].fitness):
@@ -98,6 +129,29 @@ class DataGatherer():
     else:
       self.best.append(copy.deepcopy(self.best[-1]))   
       self.newBest = False
+    # ------------------------------------------------------------------------ 
+    
+    # --- Raw Fitness Tracking -----------------------------------------------
+    # Track raw fitness for elite (best of current generation)
+    elite_raw_fit = raw_fitness[elite_idx]
+    self.elite_raw_fitness.append(elite_raw_fit)
+    self.current_elite_raw_fitness = elite_raw_fit
+    self.fit_max_raw = np.append(self.fit_max_raw, elite_raw_fit)
+    
+    # Track raw fitness for best (best across all generations)
+    if len(self.best_raw_fitness) == 0:
+      self.best_raw_fitness.append(elite_raw_fit)
+      self.current_best_raw_fitness = elite_raw_fit
+    elif self.newBest:
+      # New best individual - update raw fitness
+      self.best_raw_fitness.append(elite_raw_fit)
+      self.current_best_raw_fitness = elite_raw_fit
+    else:
+      # Keep previous best's raw fitness
+      self.best_raw_fitness.append(self.best_raw_fitness[-1])
+      self.current_best_raw_fitness = self.best_raw_fitness[-1]
+    
+    self.fit_top_raw = np.append(self.fit_top_raw, self.current_best_raw_fitness)
     # ------------------------------------------------------------------------ 
 
     
@@ -122,7 +176,6 @@ class DataGatherer():
     # --- Species Stats ------------------------------------------------------
     if self.p['alg_speciate'] == 'neat':
       specFit = np.empty((2,0))
-      #print('# of Species: ', len(species))
       for iSpec in range(len(species)):
         for ind in species[iSpec].members:
           tmp = np.array((iSpec,ind.fitness))
@@ -139,21 +192,72 @@ class DataGatherer():
     # ------------------------------------------------------------------------
 
 
-  def display(self):
-    """Console output for each generation
-    """
-    output = "Elite Fit: " + '{:.2f}'.format(self.fit_max[-1]) \
-         + " Best Fit:"  + '{:.2f}'.format(self.fit_top[-1]) \
-         + " #Species:"  + str(int(self.num_species[-1])) \
-         + " Med #nodes:"  + str(int(self.node_med[-1])) \
-         + " Med #conns:"  + str(int(self.conn_med[-1]))
+  def set_display_config(self, **kwargs):
+    """Configure which metrics to display.
     
-    # Add action distribution to display
-    if self.current_action_dist is not None:
+    Args (all optional bool):
+      show_elite_total: Show elite total fitness (shaped)
+      show_elite_raw: Show elite raw fitness (actual)
+      show_best_total: Show best total fitness (shaped)
+      show_best_raw: Show best raw fitness (actual)
+      show_species: Show species count
+      show_complexity: Show node/conn counts
+      show_actions: Show action distribution
+    """
+    for key, value in kwargs.items():
+      if key in self.display_config:
+        self.display_config[key] = value
+  
+  def display(self):
+    """Console output for each generation.
+    
+    Output format depends on display_config settings:
+    - Elite(T/R): total/raw fitness of current generation's best
+    - Best(T/R): total/raw fitness of best across all generations
+    - Species, node, conn counts
+    - Action distribution
+    
+    Use set_display_config() to enable/disable specific outputs.
+    """
+    cfg = self.display_config
+    parts = []
+    
+    # --- Elite fitness (current generation's best) ---
+    if cfg['show_elite_total'] or cfg['show_elite_raw']:
+      elite_str = "Elite:"
+      if cfg['show_elite_total']:
+        elite_str += " T={:.2f}".format(self.fit_max[-1])
+      if cfg['show_elite_raw'] and self.current_elite_raw_fitness is not None:
+        elite_str += " R={:.2f}".format(self.current_elite_raw_fitness)
+      parts.append(elite_str)
+    
+    # --- Best fitness (best across all generations) ---
+    if cfg['show_best_total'] or cfg['show_best_raw']:
+      best_str = "Best:"
+      if cfg['show_best_total']:
+        best_str += " T={:.2f}".format(self.fit_top[-1])
+      if cfg['show_best_raw'] and self.current_best_raw_fitness is not None:
+        best_str += " R={:.2f}".format(self.current_best_raw_fitness)
+      parts.append(best_str)
+    
+    # --- Species count ---
+    if cfg['show_species']:
+      parts.append("#Sp:{}".format(int(self.num_species[-1])))
+    
+    # --- Complexity (node/conn) ---
+    if cfg['show_complexity']:
+      parts.append("#n:{} #c:{}".format(
+        int(self.node_med[-1]), int(self.conn_med[-1])
+      ))
+    
+    output = " | ".join(parts)
+    
+    # --- Action distribution ---
+    if cfg['show_actions'] and self.current_action_dist is not None:
       if self.is_discrete_action:
         # Discrete actions: show distribution with action labels
         # Format: L:15% S:10% R:20% LJ:25% SJ:15% RJ:15%
-        output += " | Actions:"
+        output += " | Act:"
         for i, pct in enumerate(self.current_action_dist):
           label = self.discrete_action_labels[i] if i < len(self.discrete_action_labels) else f"A{i}"
           output += " {}:{:.0f}%".format(label, pct*100)
@@ -166,6 +270,25 @@ class DataGatherer():
           output += " O{}[{}]".format(i, ','.join(pcts))
     
     return output
+  
+  def display_compact(self):
+    """Compact display showing only raw (actual) fitness.
+    
+    Useful when you only care about actual game performance.
+    """
+    elite_raw = self.current_elite_raw_fitness if self.current_elite_raw_fitness is not None else self.fit_max[-1]
+    best_raw = self.current_best_raw_fitness if self.current_best_raw_fitness is not None else self.fit_top[-1]
+    
+    return "Elite(raw):{:.2f} Best(raw):{:.2f}".format(elite_raw, best_raw)
+  
+  def display_full(self):
+    """Full display showing all metrics including both total and raw fitness."""
+    # Temporarily enable all displays
+    old_config = self.display_config.copy()
+    self.display_config = {k: True for k in self.display_config}
+    output = self.display()
+    self.display_config = old_config
+    return output
 
 
   def save(self, gen=(-1)):
@@ -176,13 +299,22 @@ class DataGatherer():
     pref = 'log/' + filename
 
     # --- Generation fit/complexity stats ------------------------------------ 
+    # Now includes both total and raw fitness
     gStatLabel = ['x_scale',\
-                  'fit_med','fit_max','fit_top','node_med','conn_med']
+                  'fit_med','fit_max','fit_top','fit_max_raw','fit_top_raw','node_med','conn_med']
     genStats = np.empty((len(self.x_scale),0))
     for i in range(len(gStatLabel)):
       #e.g.         self.    fit_max          [:,None]
       evalString = 'self.' + gStatLabel[i] + '[:,None]'
-      genStats = np.hstack((genStats, eval(evalString)))
+      try:
+        col = eval(evalString)
+        # Ensure column has right length (pad with last value if needed)
+        if len(col) < len(self.x_scale):
+          col = np.append(col, np.full(len(self.x_scale) - len(col), col[-1] if len(col) > 0 else 0))[:, None]
+        genStats = np.hstack((genStats, col))
+      except:
+        # If array doesn't exist or is empty, fill with zeros
+        genStats = np.hstack((genStats, np.zeros((len(self.x_scale), 1))))
     lsave(pref + '_stats.out', genStats)
     # ------------------------------------------------------------------------ 
 

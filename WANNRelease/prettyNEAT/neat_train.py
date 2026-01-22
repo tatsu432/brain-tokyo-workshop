@@ -80,6 +80,11 @@ def master():
   task_config = games[hyp['task']]
   data.is_discrete_action = (task_config.actionSelect in ['prob', 'hard'])
   
+  # Configure display settings from hyperparameters
+  display_config = hyp.get('display_config', {})
+  if display_config:
+    data.set_display_config(**display_config)
+  
   # Initialize rendering manager (non-blocking visualization)
   render_enabled = hyp.get('render_enabled', False)
   if render_enabled:
@@ -132,7 +137,7 @@ def master():
     
     # Evaluate population (with self-play if enabled)
     if selfplay_config.enabled:
-      reward, action_dist, pop_stats = batchMpiEvalSelfPlay(pop, track_actions=True, verbose=verbose)
+      reward, action_dist, pop_stats, raw_reward = batchMpiEvalSelfPlay(pop, track_actions=True, verbose=verbose)
       
       # Update curriculum based on population statistics
       if selfplay_config.enable_curriculum:
@@ -172,17 +177,17 @@ def master():
       data.selfplay_stats['archive_size'].append(len(opponent_archive))
       
     else:
-      reward, action_dist = batchMpiEval(pop, track_actions=True)
+      reward, action_dist, raw_reward = batchMpiEval(pop, track_actions=True)
     
     neat.tell(reward)           # Send fitness to NEAT    
 
-    data = gatherData(data, neat, gen, hyp, action_dist=action_dist)
+    data = gatherData(data, neat, gen, hyp, action_dist=action_dist, raw_fitness=raw_reward)
     
     # Display with self-play info
     if selfplay_config.enabled:
-      print(f"{gen} \t - \t {data.display()} | Stage: {curriculum_stage}, Archive: {len(opponent_archive)}")
+      print(f"Gen {gen}: {data.display()} | Stage: {curriculum_stage}, Archive: {len(opponent_archive)}")
     else:
-      print(gen, '\t - \t', data.display())
+      print(f"Gen {gen}: {data.display()}")
     
     # Trigger non-blocking rendering of best individual
     if render_manager is not None and render_manager.should_render(gen):
@@ -346,7 +351,7 @@ def load_archive(fileName):
     print(f"Loaded archive with {len(opponent_archive)} opponents from {archive_path}")
 
 
-def gatherData(data,neat,gen,hyp,savePop=False,action_dist=None):
+def gatherData(data,neat,gen,hyp,savePop=False,action_dist=None,raw_fitness=None):
   """Collects run data, saves it to disk, and exports pickled population
 
   Args:
@@ -358,11 +363,12 @@ def gatherData(data,neat,gen,hyp,savePop=False,action_dist=None):
     hyp        - (dict)          - algorithm hyperparameters
     savePop    - (bool)          - save current population to disk?
     action_dist - (np_array)     - aggregated action distribution [nOutput x n_bins]
+    raw_fitness - (np_array)     - raw fitness values (actual game reward) for each individual
 
   Return:
     data - (DataGatherer) - updated run data
   """
-  data.gatherData(neat.pop, neat.species, action_dist=action_dist)
+  data.gatherData(neat.pop, neat.species, action_dist=action_dist, raw_fitness=raw_fitness)
   if (gen%hyp['save_mod']) == 0:
     data = checkBest(data)
     data.save(gen)
@@ -420,10 +426,12 @@ def batchMpiEval(pop: list[Ind], sameSeedForEachIndividual: bool = True, track_a
     track_actions - (bool) - whether to track action distributions
 
   Return:
-    reward  - (np_array) - fitness value of each individual
+    reward  - (np_array) - total fitness value of each individual (shaped)
               [N X 1]
     action_dist - (np_array) - aggregated action distribution (if track_actions=True)
               [nOutput X n_bins]
+    raw_reward - (np_array) - raw fitness value of each individual (actual game reward)
+              [N X 1]
 
   Todo:
     * Asynchronous evaluation instead of batches
@@ -440,6 +448,7 @@ def batchMpiEval(pop: list[Ind], sameSeedForEachIndividual: bool = True, track_a
     seed = np.random.randint(1000)
 
   reward = np.empty(nJobs, dtype=np.float64)
+  raw_reward = np.empty(nJobs, dtype=np.float64)  # Track raw fitness
   
   # Initialize action distribution aggregator
   action_dist_agg = None
@@ -486,11 +495,21 @@ def batchMpiEval(pop: list[Ind], sameSeedForEachIndividual: bool = True, track_a
           action_dist = np.empty(action_dist_shape, dtype='d')
           comm.Recv(action_dist, source=iWork, tag=8)
           
+          # Receive raw fitness
+          raw_result = np.empty(1, dtype='d')
+          comm.Recv(raw_result, source=iWork, tag=10)
+          raw_reward[i] = raw_result[0]
+          
           # Aggregate action distributions
           if action_dist_agg is None:
             action_dist_agg = action_dist.copy()
           else:
             action_dist_agg += action_dist
+        else:
+          # Even without action tracking, still receive raw fitness
+          raw_result = np.empty(1, dtype='d')
+          comm.Recv(raw_result, source=iWork, tag=10)
+          raw_reward[i] = raw_result[0]
       i+=1
   
   # Normalize aggregated action distribution
@@ -507,9 +526,9 @@ def batchMpiEval(pop: list[Ind], sameSeedForEachIndividual: bool = True, track_a
       total = np.sum(action_dist_agg, axis=1, keepdims=True)
       total[total == 0] = 1
       action_dist_agg = action_dist_agg / total
-    return reward, action_dist_agg
+    return reward, action_dist_agg, raw_reward
   
-  return reward, None
+  return reward, None, raw_reward
 
 
 def batchMpiEvalSelfPlay(pop: list[Ind], sameSeedForEachIndividual: bool = True, 
@@ -520,9 +539,10 @@ def batchMpiEvalSelfPlay(pop: list[Ind], sameSeedForEachIndividual: bool = True,
   Same as batchMpiEval but also collects episode statistics for curriculum learning.
   
   Returns:
-    reward - fitness values
+    reward - total fitness values (shaped)
     action_dist - action distribution (if track_actions)
     pop_stats - aggregated population statistics
+    raw_reward - raw fitness values (actual game reward)
   """
   global nWorker, hyp, opponent_archive, selfplay_config
   nSlave = nWorker - 1
@@ -535,6 +555,7 @@ def batchMpiEvalSelfPlay(pop: list[Ind], sameSeedForEachIndividual: bool = True,
     seed = np.random.randint(1000)
 
   reward = np.empty(nJobs, dtype=np.float64)
+  raw_reward = np.empty(nJobs, dtype=np.float64)  # Track raw fitness
   action_dist_agg = None
   
   # Aggregate episode statistics
@@ -606,6 +627,11 @@ def batchMpiEvalSelfPlay(pop: list[Ind], sameSeedForEachIndividual: bool = True,
         total_rallies_lost += ep_stats.get('rallies_lost', 0)
         total_episodes += 1
         
+        # Receive raw fitness
+        raw_result = np.empty(1, dtype='d')
+        comm.Recv(raw_result, source=iWork, tag=10)
+        raw_reward[i] = raw_result[0]
+        
       i += 1
   
   if verbose:
@@ -628,7 +654,7 @@ def batchMpiEvalSelfPlay(pop: list[Ind], sameSeedForEachIndividual: bool = True,
     'avg_rallies_lost': total_rallies_lost / max(total_episodes, 1),
   }
   
-  return reward, action_dist_agg, pop_stats
+  return reward, action_dist_agg, pop_stats, raw_reward
 
 
 def slave():
@@ -645,8 +671,9 @@ def slave():
     track_actions - (bool) - whether to track action distributions
 
   PseudoReturn (sent to master):
-    result - (float)    - fitness value of network
+    result - (float)    - total fitness value of network (shaped)
     action_dist - (np_array) - action distribution (if track_actions=True)
+    raw_result - (float)    - raw fitness value (actual game reward)
   """
   global hyp, selfplay_config, opponent_archive
   
@@ -707,20 +734,21 @@ def slave():
 
       if track_actions:
         if verbose:
-          print(f"[Worker {rank}] Starting job {job_count}, archive_size={len(task.archive)}", flush=True)
+          print(f"[Worker {rank}] Starting job {job_count}, archive_size={len(task.archive) if selfplay_enabled else 0}", flush=True)
         
         try:
-          fitness, action_dist = task.getFitness(wVec, aVec, track_actions=True)
+          fitness, action_dist, raw_fitness = task.getFitness(wVec, aVec, track_actions=True)
         except Exception as e:
           print(f"[Worker {rank}] ERROR in getFitness (job {job_count}): {e}", flush=True)
           import traceback
           traceback.print_exc()
           # Send dummy data to avoid deadlock
           fitness = -999.0
+          raw_fitness = -999.0
           action_dist = np.zeros(task.nOutput)
         
         if verbose:
-          print(f"[Worker {rank}] Completed job {job_count}, fitness={fitness:.2f}", flush=True)
+          print(f"[Worker {rank}] Completed job {job_count}, fitness={fitness:.2f}, raw={raw_fitness:.2f}", flush=True)
         
         result = np.array([fitness])
         comm.Send(result, dest=0)
@@ -733,13 +761,26 @@ def slave():
         else:
           ep_stats = {}
         comm.send(ep_stats, dest=0, tag=9)
+        
+        # Send raw fitness
+        raw_result = np.array([raw_fitness])
+        comm.Send(raw_result, dest=0, tag=10)
       else:
         result = task.getFitness(wVec, aVec)
         if isinstance(result, tuple):
-          result = np.array([result[0]])
+          # Result is (total_fitness, raw_fitness) or similar
+          total_fit = result[0]
+          raw_fit = result[1] if len(result) > 1 else total_fit
         else:
-          result = np.array([result])
+          total_fit = result
+          raw_fit = result  # No shaping, raw = total
+        
+        result = np.array([total_fit])
         comm.Send(result, dest=0)
+        
+        # Send raw fitness
+        raw_result = np.array([raw_fit])
+        comm.Send(raw_result, dest=0, tag=10)
 
     if n_wVec < 0:
       print('Worker # ', rank, ' shutting down.')
