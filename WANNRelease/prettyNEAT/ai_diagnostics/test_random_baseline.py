@@ -14,6 +14,7 @@ print("=" * 80)
 # Try to import slimevolleygym to register the environment
 try:
     import slimevolleygym
+
     HAS_SLIMEVOLLEY = True
 except:
     print("WARNING: slimevolleygym module not found, but env might still be registered")
@@ -21,7 +22,7 @@ except:
 
 # Try to create environment
 try:
-    test_env = gym.make('SlimeVolley-v0')
+    test_env = gym.make("SlimeVolley-v0")
     test_env.close()
     print("\n✓ SlimeVolley-v0 environment is available")
 except Exception as e:
@@ -37,20 +38,20 @@ num_episodes = 20
 rewards = []
 
 for episode in range(num_episodes):
-    env = gym.make('SlimeVolley-v0')
+    env = gym.make("SlimeVolley-v0")
     obs = env.reset()
     total_reward = 0
     done = False
     steps = 0
     max_steps = 3000
-    
+
     while not done and steps < max_steps:
         # Completely random action
         random_action = np.random.randint(0, 2, size=3)  # [forward, backward, jump]
         obs, reward, done, info = env.step(random_action)
         total_reward += reward
         steps += 1
-    
+
     rewards.append(total_reward)
     env.close()
     if (episode + 1) % 5 == 0:

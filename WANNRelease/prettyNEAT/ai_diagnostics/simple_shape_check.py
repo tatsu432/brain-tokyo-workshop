@@ -5,7 +5,7 @@ import json
 import numpy as np
 
 # Load config file directly
-with open('p/slimevolley_fixed.json', 'r') as f:
+with open("p/slimevolley_fixed.json", "r") as f:
     config = json.load(f)
 
 print("=" * 80)
@@ -23,12 +23,13 @@ print("\n## Loading game config from domain/config.py...")
 print("-" * 80)
 
 # Read config.py to extract slimevolley settings
-with open('domain/config.py', 'r') as f:
+with open("domain/config.py", "r") as f:
     config_py = f.read()
 
 # Extract output_size value (hacky but works without importing)
 import re
-match = re.search(r'slimevolley = Game\([^)]+output_size=(\d+)', config_py, re.DOTALL)
+
+match = re.search(r"slimevolley = Game\([^)]+output_size=(\d+)", config_py, re.DOTALL)
 if match:
     output_size = int(match.group(1))
     print(f"✓ Found output_size: {output_size}")
@@ -36,17 +37,17 @@ else:
     print("✗ Could not find output_size in config.py")
     output_size = None
 
-match = re.search(r'slimevolley = Game\([^)]+input_size=(\d+)', config_py, re.DOTALL)
+match = re.search(r"slimevolley = Game\([^)]+input_size=(\d+)", config_py, re.DOTALL)
 if match:
     input_size = int(match.group(1))
     print(f"✓ Found input_size: {input_size}")
 else:
     input_size = None
 
-match = re.search(r'slimevolley = Game\([^)]+layers=\[([^\]]+)\]', config_py, re.DOTALL)
+match = re.search(r"slimevolley = Game\([^)]+layers=\[([^\]]+)\]", config_py, re.DOTALL)
 if match:
     layers_str = match.group(1)
-    layers = [int(x.strip()) for x in layers_str.split(',')]
+    layers = [int(x.strip()) for x in layers_str.split(",")]
     print(f"✓ Found layers: {layers}")
 else:
     layers = None

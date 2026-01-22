@@ -54,14 +54,14 @@ for _ in range(num_samples):
     # Simulate linear network output (can be any value)
     raw_h = np.random.randn() * 2.0  # Std=2.0, so some values will be large
     raw_j = np.random.randn() * 2.0
-    
+
     # CLIP to [-1, 1] like SwingUp does
     clipped_h = np.clip(raw_h, -1.0, 1.0)
     clipped_j = np.clip(raw_j, -1.0, 1.0)
-    
+
     outputs_h.append(clipped_h)
     outputs_j.append(clipped_j)
-    
+
     # Apply action mapping with V4 thresholds
     if clipped_h > 0.3:
         forward_count += 1
@@ -69,7 +69,7 @@ for _ in range(num_samples):
         backward_count += 1
     else:
         deadband_count += 1
-    
+
     if clipped_j > 0.4:
         jump_count += 1
 
@@ -83,14 +83,18 @@ print(f"  Std:  {np.std(outputs_h):.3f}")
 print(f"  Range: [{np.min(outputs_h):.3f}, {np.max(outputs_h):.3f}]")
 print(f"  Forward (> 0.3):  {forward_count} ({100*forward_count/num_samples:.1f}%)")
 print(f"  Backward (< -0.3): {backward_count} ({100*backward_count/num_samples:.1f}%)")
-print(f"  Deadband [-0.3, 0.3]: {deadband_count} ({100*deadband_count/num_samples:.1f}%)")
+print(
+    f"  Deadband [-0.3, 0.3]: {deadband_count} ({100*deadband_count/num_samples:.1f}%)"
+)
 print()
 print(f"Jump channel:")
 print(f"  Mean: {np.mean(outputs_j):.3f}")
 print(f"  Std:  {np.std(outputs_j):.3f}")
 print(f"  Range: [{np.min(outputs_j):.3f}, {np.max(outputs_j):.3f}]")
 print(f"  Jump (> 0.4): {jump_count} ({100*jump_count/num_samples:.1f}%)")
-print(f"  No jump: {num_samples - jump_count} ({100*(num_samples-jump_count)/num_samples:.1f}%)")
+print(
+    f"  No jump: {num_samples - jump_count} ({100*(num_samples-jump_count)/num_samples:.1f}%)"
+)
 
 print("\n## Analysis")
 print("-" * 80)
@@ -143,7 +147,7 @@ for inputs, expected, description in test_cases:
     # Clip first (like in actual code)
     clipped = np.clip(inputs, -1.0, 1.0)
     out_h, out_j = clipped
-    
+
     # Apply mapping
     if out_h > 0.3:
         forward, backward = 1, 0
@@ -151,15 +155,15 @@ for inputs, expected, description in test_cases:
         forward, backward = 0, 1
     else:
         forward, backward = 0, 0
-    
+
     jump = 1 if out_j > 0.4 else 0
-    
+
     result = [forward, backward, jump]
     match = result == expected
-    
+
     status = "✓" if match else "✗"
     print(f"{status} {inputs} → clip → {clipped} → {result} | {description}")
-    
+
     if not match:
         print(f"  Expected: {expected}")
         all_passed = False

@@ -44,11 +44,22 @@ print("-" * 80)
 
 # Simulate what NEAT might output with different activations
 scenarios = [
-    ("All Linear (current)", 1, [-10, 0, 10], "Unbounded, but action mapping handles it?"),
+    (
+        "All Linear (current)",
+        1,
+        [-10, 0, 10],
+        "Unbounded, but action mapping handles it?",
+    ),
     ("All Tanh", 5, [-10, 0, 10], "Bounded to [-1, 1], action mapping works well"),
     ("All Sigmoid", 6, [-10, 0, 10], "Bounded to [0, 1], need different thresholds"),
-    ("All ReLU", 9, [-10, 0, 10], "Bounded to [0, ∞], problematic for negative actions"),
+    (
+        "All ReLU",
+        9,
+        [-10, 0, 10],
+        "Bounded to [0, ∞], problematic for negative actions",
+    ),
 ]
+
 
 def apply_act(act_id, x):
     """Simplified version of _applyAct"""
@@ -57,11 +68,12 @@ def apply_act(act_id, x):
     elif act_id == 5:  # Tanh
         return np.tanh(x)
     elif act_id == 6:  # Sigmoid
-        return (np.tanh(x/2.0) + 1.0) / 2.0
+        return (np.tanh(x / 2.0) + 1.0) / 2.0
     elif act_id == 9:  # ReLU
         return np.maximum(0, x)
     else:
         return x
+
 
 for scenario_name, act_id, test_inputs, note in scenarios:
     outputs = [apply_act(act_id, x) for x in test_inputs]

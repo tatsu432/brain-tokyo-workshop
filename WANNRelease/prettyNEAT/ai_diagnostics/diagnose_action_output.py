@@ -60,11 +60,11 @@ for _ in range(num_samples):
     # Typical: weighted sum of ~10-20 values with small random weights
     raw_output_forward = np.random.randn() * 0.5  # Small random value
     raw_output_jump = np.random.randn() * 0.5
-    
+
     # Apply tanh
     output_forward = np.tanh(raw_output_forward)
     output_jump = np.tanh(raw_output_jump)
-    
+
     outputs_forward.append(output_forward)
     outputs_jump.append(output_jump)
 
@@ -78,7 +78,9 @@ print(f"    Std: {np.std(outputs_forward):.3f}")
 print(f"    Range: [{np.min(outputs_forward):.3f}, {np.max(outputs_forward):.3f}]")
 print(f"    % > 0.2 (forward): {100 * np.mean(outputs_forward > 0.2):.1f}%")
 print(f"    % < -0.2 (backward): {100 * np.mean(outputs_forward < -0.2):.1f}%")
-print(f"    % in deadband [-0.2, 0.2]: {100 * np.mean(np.abs(outputs_forward) <= 0.2):.1f}%")
+print(
+    f"    % in deadband [-0.2, 0.2]: {100 * np.mean(np.abs(outputs_forward) <= 0.2):.1f}%"
+)
 print()
 print(f"  Jump channel:")
 print(f"    Mean: {np.mean(outputs_jump):.3f}")

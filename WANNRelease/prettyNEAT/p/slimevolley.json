@@ -31,6 +31,13 @@
     "spec_weightCoef": 0.5,
     "save_mod": 16,
     "bestReps": 50,
+
+    "_comment_rendering": "Training visualization settings",
+    "render_enabled": true,
+    "render_interval": 10,
+    "render_fps": 50,
+    "render_max_steps": 3000,
+    "render_use_archive_opponent": true,
     
     "_comment_display": "Display configuration - toggle which metrics to show",
     "display_config": {

@@ -48,37 +48,41 @@ print()
 # Check config
 try:
     import json
-    
+
     print("\n## Checking Configurations")
     print("-" * 80)
-    
+
     configs_to_check = [
-        'p/slimevolley.json',
-        'p/slimevolley_fixed.json',
-        'p/slimevolley_shaped.json',
+        "p/slimevolley.json",
+        "p/slimevolley_fixed.json",
+        "p/slimevolley_shaped.json",
     ]
-    
+
     for config_path in configs_to_check:
         if os.path.exists(config_path):
-            with open(config_path, 'r') as f:
+            with open(config_path, "r") as f:
                 cfg = json.load(f)
             print(f"\n{config_path}:")
             print(f"  task: {cfg.get('task', 'N/A')}")
-            print(f"  alg_act: {cfg.get('alg_act', 'N/A')} (0=all activations, 5=tanh only)")
+            print(
+                f"  alg_act: {cfg.get('alg_act', 'N/A')} (0=all activations, 5=tanh only)"
+            )
             print(f"  alg_nReps: {cfg.get('alg_nReps', 'N/A')}")
             print(f"  popSize: {cfg.get('popSize', 'N/A')}")
         else:
             print(f"\n{config_path}: NOT FOUND")
-    
+
     # Check task config
     print("\n## Checking Game Configuration")
     print("-" * 80)
-    
-    sys.path.insert(0, '/Users/a81808/code/self_study/brain-tokyo-workshop/WANNRelease/prettyNEAT')
+
+    sys.path.insert(
+        0, "/Users/a81808/code/self_study/brain-tokyo-workshop/WANNRelease/prettyNEAT"
+    )
     from domain.config import games
-    
-    if 'slimevolley' in games:
-        game = games['slimevolley']
+
+    if "slimevolley" in games:
+        game = games["slimevolley"]
         print("\nslimevolley game config:")
         print(f"  env_name: {game.env_name}")
         print(f"  output_size: {game.output_size}")
@@ -88,24 +92,26 @@ try:
         print()
         print(f"  🔍 output activation (o_act): {game.o_act}")
         print(f"     This means output nodes use activation #{game.o_act[0]}")
-        
+
         # Show what that activation does
         from neat_src.ann import _applyAct
+
         test_vals = np.array([-2, -1, -0.5, 0, 0.5, 1, 2])
         outputs = _applyAct(int(game.o_act[0]), test_vals)
         print(f"     Test: input {test_vals}")
         print(f"           output {outputs}")
         print(f"     Range: [{np.min(outputs):.2f}, {np.max(outputs):.2f}]")
-    
-    if 'slimevolley_shaped' in games:
-        game_shaped = games['slimevolley_shaped']
+
+    if "slimevolley_shaped" in games:
+        game_shaped = games["slimevolley_shaped"]
         print("\nslimevolley_shaped game config:")
         print(f"  env_name: {game_shaped.env_name}")
         print(f"  (other params same as slimevolley)")
-    
+
 except Exception as e:
     print(f"\n✗ Error checking configs: {e}")
     import traceback
+
     traceback.print_exc()
 
 print("\n\n" + "=" * 80)

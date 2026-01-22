@@ -11,6 +11,7 @@ Since V4 is still stuck at -3.80, we need to verify:
 import json
 import sys
 import os
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from domain import config
@@ -21,7 +22,7 @@ print("=" * 80)
 
 # Check config
 games = config.games
-slime = games['slimevolley']
+slime = games["slimevolley"]
 
 print("\n## SlimeVolley Configuration")
 print("-" * 80)
@@ -47,19 +48,19 @@ else:
 print("\n## Check if clipping is in slimevolley.py")
 print("-" * 80)
 
-with open('domain/slimevolley.py', 'r') as f:
+with open("domain/slimevolley.py", "r") as f:
     code = f.read()
 
-if 'np.clip(action, -1.0, 1.0)' in code:
+if "np.clip(action, -1.0, 1.0)" in code:
     print("✓ Found np.clip in slimevolley.py")
 else:
     print("✗ No np.clip found - V4 not applied!")
 
-if 'action[0] > 0.3' in code:
+if "action[0] > 0.3" in code:
     print("✓ Found threshold 0.3 (V4)")
-elif 'action[0] > 0.05' in code:
+elif "action[0] > 0.05" in code:
     print("✗ Found threshold 0.05 (V3) - V4 not applied!")
-elif 'action[0] > 0.2' in code:
+elif "action[0] > 0.2" in code:
     print("✗ Found threshold 0.2 (V2) - old version!")
 else:
     print("? Could not find threshold")
@@ -67,7 +68,11 @@ else:
 print("\n## Conclusion")
 print("=" * 80)
 
-if slime.o_act[0] == 1 and 'np.clip(action, -1.0, 1.0)' in code and 'action[0] > 0.3' in code:
+if (
+    slime.o_act[0] == 1
+    and "np.clip(action, -1.0, 1.0)" in code
+    and "action[0] > 0.3" in code
+):
     print()
     print("✓ V4 IS CORRECTLY APPLIED")
     print()

@@ -39,10 +39,10 @@ for _ in range(num_samples):
     # Simulate tanh output
     raw_h = np.random.randn() * 0.5
     raw_j = np.random.randn() * 0.5
-    
+
     out_h = np.tanh(raw_h)
     out_j = np.tanh(raw_j)
-    
+
     # Apply action mapping
     if out_h > 0.05:
         forward_count += 1
@@ -50,14 +50,18 @@ for _ in range(num_samples):
         backward_count += 1
     else:
         deadband_count += 1
-    
+
     if out_j > 0.1:
         jump_count += 1
 
 print(f"\nWith {num_samples} random tanh outputs:")
 print(f"  Forward activations: {forward_count} ({100*forward_count/num_samples:.1f}%)")
-print(f"  Backward activations: {backward_count} ({100*backward_count/num_samples:.1f}%)")
-print(f"  Deadband (no horizontal): {deadband_count} ({100*deadband_count/num_samples:.1f}%)")
+print(
+    f"  Backward activations: {backward_count} ({100*backward_count/num_samples:.1f}%)"
+)
+print(
+    f"  Deadband (no horizontal): {deadband_count} ({100*deadband_count/num_samples:.1f}%)"
+)
 print(f"  Jump activations: {jump_count} ({100*jump_count/num_samples:.1f}%)")
 
 print("\n## Analysis")
@@ -96,7 +100,7 @@ test_cases = [
 all_passed = True
 for inputs, expected, description in test_cases:
     out_h, out_j = inputs
-    
+
     # Apply mapping
     if out_h > 0.05:
         forward, backward = 1, 0
@@ -104,15 +108,15 @@ for inputs, expected, description in test_cases:
         forward, backward = 0, 1
     else:
         forward, backward = 0, 0
-    
+
     jump = 1 if out_j > 0.1 else 0
-    
+
     result = [forward, backward, jump]
     match = result == expected
-    
+
     status = "✓" if match else "✗"
     print(f"{status} {inputs} → {result} | {description}")
-    
+
     if not match:
         print(f"  Expected: {expected}")
         all_passed = False
@@ -129,7 +133,9 @@ if all_passed and verdict in ["GOOD", "OK"]:
     print("  - Low thresholds (0.05, 0.1)")
     print()
     print("Action activation rates:")
-    print(f"  - Horizontal movement: {100*(forward_count+backward_count)/num_samples:.1f}%")
+    print(
+        f"  - Horizontal movement: {100*(forward_count+backward_count)/num_samples:.1f}%"
+    )
     print(f"  - Jump: {100*jump_count/num_samples:.1f}%")
     print()
     print("This should allow the agent to explore effectively!")

@@ -24,7 +24,7 @@ print("=" * 80)
 
 # Load slimevolley config
 games = config.games
-slime_config = games['slimevolley']
+slime_config = games["slimevolley"]
 
 print("\n## Configuration")
 print("-" * 80)
@@ -52,10 +52,10 @@ wMat = np.zeros((total_nodes, total_nodes))
 
 # Add some dummy connections
 # Input 0 → Hidden layer 1, node 0
-wMat[n_input, 0] = 0.5  
+wMat[n_input, 0] = 0.5
 # Hidden layer 1, node 0 → Output 0
 wMat[n_input + hidden[0], n_input] = 1.0
-# Hidden layer 1, node 1 → Output 1  
+# Hidden layer 1, node 1 → Output 1
 wMat[n_input + hidden[0] + 1, n_input + 1] = 1.0
 
 # Create activation vector

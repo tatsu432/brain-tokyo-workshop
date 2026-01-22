@@ -12,27 +12,28 @@ This script will:
 import numpy as np
 import sys
 
+
 def test_slimevolley_rewards():
     """Test the actual SlimeVolley environment to understand its rewards"""
     print("=" * 70)
     print("Testing SlimeVolley Environment Directly")
     print("=" * 70)
-    
+
     try:
         import gym
         import slimevolleygym
-        
-        env = gym.make('SlimeVolley-v0')
+
+        env = gym.make("SlimeVolley-v0")
         obs = env.reset()
-        
+
         print(f"\n1. Environment loaded successfully")
         print(f"   Observation shape: {obs.shape}")
         print(f"   Observation: {obs}")
-        
+
         # Test with random actions
         total_reward = 0
         episode_rewards = []
-        
+
         print(f"\n2. Running 1 episode with random actions...")
         for i in range(3000):  # max episode length
             action = env.action_space.sample()
@@ -43,24 +44,25 @@ def test_slimevolley_rewards():
                 print(f"   Step {i}: reward = {reward} (total: {total_reward})")
             if done:
                 break
-        
+
         print(f"\n   Episode finished at step {i}")
         print(f"   Total reward: {total_reward}")
         print(f"   Non-zero rewards: {episode_rewards}")
         print(f"   Number of point events: {len(episode_rewards)}")
-        
+
         env.close()
-        
+
         print("\n3. Analysis:")
         print(f"   - Rewards are sparse: only when lives are won/lost")
         print(f"   - Typical reward per episode: {total_reward}")
         print(f"   - This should be negative (opponent usually wins)")
-        
+
         return True
-        
+
     except Exception as e:
         print(f"\n✗ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -70,13 +72,13 @@ def test_activation_output_ranges():
     print("\n\n" + "=" * 70)
     print("Testing Activation Function Output Ranges")
     print("=" * 70)
-    
+
     try:
         from neat_src.ann import _applyAct
-        
+
         # Test inputs
         test_inputs = np.array([-10, -5, -2, -1, -0.5, 0, 0.5, 1, 2, 5, 10])
-        
+
         # Activation functions from config
         activations = {
             1: "Linear",
@@ -90,27 +92,30 @@ def test_activation_output_ranges():
             9: "ReLU",
             10: "Cos",
         }
-        
+
         print("\nInput values:", test_inputs)
         print()
-        
+
         for act_id, act_name in activations.items():
             outputs = _applyAct(act_id, test_inputs)
-            print(f"Activation {act_id} ({act_name:15s}): range [{np.min(outputs):7.2f}, {np.max(outputs):7.2f}]")
+            print(
+                f"Activation {act_id} ({act_name:15s}): range [{np.min(outputs):7.2f}, {np.max(outputs):7.2f}]"
+            )
             print(f"   Outputs: {outputs}")
-        
+
         print("\n" + "-" * 70)
         print("KEY INSIGHT:")
         print("  - Most activations output in range [-1, 1] or [0, 1]")
         print("  - Linear activation can output ANY value!")
         print("  - This affects whether action mapping thresholds make sense")
         print("=" * 70)
-        
+
         return True
-        
+
     except Exception as e:
         print(f"\n✗ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -120,7 +125,7 @@ def test_reward_shaping_magnitude():
     print("\n\n" + "=" * 70)
     print("Analyzing Reward Shaping Magnitude")
     print("=" * 70)
-    
+
     print("\nShaped reward components (per step):")
     print("  - Ball proximity (+2.0 if close, +1.0 if medium): ~1.0 avg")
     print("  - Edge penalty (-3.0): occasional")
@@ -155,16 +160,16 @@ def main():
     print("#" * 70)
     print("# SlimeVolley Training Bottleneck - Deep Diagnosis")
     print("#" * 70)
-    
+
     # Test 1: Direct environment
     test1 = test_slimevolley_rewards()
-    
+
     # Test 2: Activation functions
     test2 = test_activation_output_ranges()
-    
+
     # Test 3: Reward shaping analysis
     test_reward_shaping_magnitude()
-    
+
     print("\n\n" + "=" * 70)
     print("CONCLUSION")
     print("=" * 70)
@@ -182,7 +187,7 @@ def main():
     print("   - Network architecture")
     print()
     print("=" * 70)
-    
+
     return 0
 
 
