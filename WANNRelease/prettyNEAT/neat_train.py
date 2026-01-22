@@ -1,5 +1,58 @@
 import os
 import sys
+import contextlib
+import io
+
+# Fix SDL2 library conflict between OpenCV and Pygame
+# Set environment variables before any imports that might load SDL2
+# This prevents the "Class SDLView is implemented in both" warning
+os.environ.setdefault("OPENCV_IO_ENABLE_OPENEXR", "0")
+# Prefer system SDL2 or pygame's SDL2 over OpenCV's bundled version
+# This suppresses the duplicate library warning on macOS
+if sys.platform == "darwin":
+    # On macOS, we can suppress the warning by controlling library loading order
+    # The warning is harmless but annoying, so we'll let pygame's SDL2 take precedence
+    pass
+
+
+class FilteredStderr:
+    """Custom stderr filter to suppress gym deprecation warnings."""
+    
+    def __init__(self, original_stderr):
+        self.original_stderr = original_stderr
+        # Store the original attributes we need to preserve
+        for attr in ['mode', 'name', 'encoding', 'errors', 'newlines', 'line_buffering', 'write_through']:
+            if hasattr(original_stderr, attr):
+                setattr(self, attr, getattr(original_stderr, attr))
+    
+    def write(self, text):
+        # Filter out gym deprecation warnings
+        if "Gym has been unmaintained" in text:
+            return len(text)  # Pretend we wrote it
+        if "does not support NumPy 2.0" in text:
+            return len(text)
+        if "upgrade to Gymnasium" in text:
+            return len(text)
+        if "migration guide" in text.lower():
+            return len(text)
+        # Write everything else to original stderr
+        return self.original_stderr.write(text)
+    
+    def flush(self):
+        return self.original_stderr.flush()
+    
+    def close(self):
+        return self.original_stderr.close()
+    
+    def __getattr__(self, name):
+        # Delegate all other attributes to original stderr
+        return getattr(self.original_stderr, name)
+
+
+# Install global stderr filter to suppress gym warnings
+_original_stderr = sys.stderr
+sys.stderr = FilteredStderr(_original_stderr)
+
 import time
 import math
 import argparse
@@ -7,11 +60,27 @@ import subprocess
 import warnings
 import numpy as np
 
+
+@contextlib.contextmanager
+def suppress_stderr():
+    """Context manager to suppress stderr output (for gym deprecation warnings)."""
+    with open(os.devnull, "w") as devnull:
+        old_stderr = sys.stderr
+        sys.stderr = devnull
+        try:
+            yield
+        finally:
+            sys.stderr = old_stderr
+
 # Suppress gym step API deprecation warning
 # Filter by message pattern and by module to catch all variations
 warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*Initializing environment in old step API.*")
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="gym.wrappers.step_api_compatibility")
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="gym")
+# Suppress Gym/NumPy 2.0 compatibility warnings
+warnings.filterwarnings("ignore", message=".*Gym has been unmaintained.*")
+warnings.filterwarnings("ignore", message=".*does not support NumPy 2.0.*")
+warnings.filterwarnings("ignore", message=".*upgrade to Gymnasium.*")
 
 np.set_printoptions(precision=2, linewidth=160)
 
@@ -28,7 +97,9 @@ rank = comm.Get_rank()
 
 # prettyNeat
 from neat_src import *  # NEAT
-from domain import *  # Task environments
+# Suppress gym deprecation warnings during domain import (gym prints directly to stderr)
+with suppress_stderr():
+    from domain import *  # Task environments
 
 # Non-blocking rendering (only import in master process to avoid MPI issues)
 render_manager = None

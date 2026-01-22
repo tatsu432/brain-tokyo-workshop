@@ -9,6 +9,9 @@ All SlimeVolley wrappers should inherit from this base class to ensure consisten
 
 import logging
 import warnings
+import sys
+import os
+import contextlib
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
@@ -20,18 +23,36 @@ from typing import Optional
 warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*Initializing environment in old step API.*")
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="gym.wrappers.step_api_compatibility")
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="gym")
+# Suppress Gym/NumPy 2.0 compatibility warnings
+warnings.filterwarnings("ignore", message=".*Gym has been unmaintained.*")
+warnings.filterwarnings("ignore", message=".*does not support NumPy 2.0.*")
+warnings.filterwarnings("ignore", message=".*upgrade to Gymnasium.*")
 
 from domain.slimevolley_actions import SlimeVolleyActionProcessor
 
 logger = logging.getLogger(__name__)
 
+
+@contextlib.contextmanager
+def suppress_stderr():
+    """Context manager to suppress stderr output."""
+    with open(os.devnull, "w") as devnull:
+        old_stderr = sys.stderr
+        sys.stderr = devnull
+        try:
+            yield
+        finally:
+            sys.stderr = old_stderr
+
+
 # Try to import slimevolleygym
 try:
-    # Suppress warnings during import
+    # Suppress warnings and stderr during import (gym prints directly to stderr)
     with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-        import slimevolleygym
-        import gym as old_gym  # slimevolleygym uses old gym API
+        warnings.simplefilter("ignore")
+        with suppress_stderr():
+            import slimevolleygym
+            import gym as old_gym  # slimevolleygym uses old gym API
 
     # Apply rendering patch to fix gym rendering compatibility issues
     try:
@@ -90,9 +111,11 @@ class BaseSlimeVolleyEnv(gym.Env):
         # Create the base SlimeVolley environment
         # slimevolleygym uses old gym API, not gymnasium
         # Disable env checker to avoid numpy 2.x compatibility issues
+        # Suppress stderr to hide gym deprecation warnings (gym prints directly to stderr)
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", category=DeprecationWarning)
-            self.env = old_gym.make(env_id, disable_env_checker=True)
+            with suppress_stderr():
+                self.env = old_gym.make(env_id, disable_env_checker=True)
 
         # Environment properties
         self.max_steps = max_steps

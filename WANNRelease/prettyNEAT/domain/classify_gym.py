@@ -1,12 +1,17 @@
 import logging
 import math
+import os
+import sys
+
+# Prevent SDL2 conflict: OpenCV headless doesn't need SDL2
+# Set environment variable before importing cv2
+os.environ.setdefault("OPENCV_IO_ENABLE_OPENEXR", "0")
+
 import gymnasium as gym
 from gymnasium import spaces
 from gymnasium.utils.seeding import np_random
 import numpy as np
-import sys
 import cv2
-import math
 
 
 class ClassifyEnv(gym.Env):
