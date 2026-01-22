@@ -38,9 +38,12 @@
   "selfplay_archive_weight": 0.4,
   "selfplay_n_archive_opponents": 3,
   "selfplay_archive_add_freq": 5,
-  "selfplay_enable_curriculum": true,
   
-  "_comment_curriculum": "Curriculum thresholds",
+  "_comment_curriculum": "Curriculum learning settings",
+  "_comment_curriculum_note": "Set enable_curriculum=true to use curriculum (touch→rally→win), false for fixed rewards",
+  "_comment_curriculum_note2": "For self-play, you can also use selfplay_enable_curriculum (overridden by enable_curriculum if set)",
+  "enable_curriculum": true,
+  "selfplay_enable_curriculum": true,
   "selfplay_touch_threshold": 5.0,
   "selfplay_rally_threshold": 0.0,
   

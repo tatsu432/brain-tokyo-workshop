@@ -677,25 +677,53 @@ def slave():
   """
   global hyp, selfplay_config, opponent_archive
   
+  # Check for verbose mode (needed early for curriculum logging)
+  verbose = os.environ.get('NEAT_VERBOSE', '0') == '1'
+  
   # Check if self-play is enabled
   selfplay_enabled = hyp.get('selfplay_enabled', False)
   
+  # Get task config and apply curriculum override if specified
+  # This allows switching curriculum on/off via enable_curriculum config parameter
+  game_config = games[hyp['task']]
+  enable_curriculum = hyp.get('enable_curriculum', None)
+  if enable_curriculum is not None:
+    if game_config.env_name == 'SlimeVolley-Shaped-v0':
+      if enable_curriculum:
+        # Switch to curriculum version
+        game_config = game_config._replace(env_name='SlimeVolley-Shaped-Curriculum-v0')
+        if verbose:
+          print(f"  [Worker] Curriculum ENABLED: Using SlimeVolley-Shaped-Curriculum-v0", flush=True)
+      # else: already using non-curriculum version
+    elif game_config.env_name == 'SlimeVolley-Shaped-Curriculum-v0':
+      if not enable_curriculum:
+        # Switch to non-curriculum version
+        game_config = game_config._replace(env_name='SlimeVolley-Shaped-v0')
+        if verbose:
+          print(f"  [Worker] Curriculum DISABLED: Using SlimeVolley-Shaped-v0", flush=True)
+  
   if selfplay_enabled:
     from domain.task_gym_selfplay import SelfPlayGymTask
+    # For self-play, curriculum is controlled by selfplay_enable_curriculum
+    # but we also respect the global enable_curriculum if set
+    selfplay_curriculum = hyp.get('selfplay_enable_curriculum', True)
+    if enable_curriculum is not None:
+      # Global enable_curriculum overrides selfplay setting
+      selfplay_curriculum = enable_curriculum
+    
     task = SelfPlayGymTask(
-      games[hyp['task']], 
+      game_config, 
       nReps=hyp['alg_nReps'],
       eval_mode=hyp.get('selfplay_eval_mode', 'mixed'),
       baseline_weight=hyp.get('selfplay_baseline_weight', 0.6),
       archive_weight=hyp.get('selfplay_archive_weight', 0.4),
       n_archive_opponents=hyp.get('selfplay_n_archive_opponents', 3),
-      enable_curriculum=hyp.get('selfplay_enable_curriculum', True),
+      enable_curriculum=selfplay_curriculum,
     )
   else:
-    task = GymTask(games[hyp['task']], nReps=hyp['alg_nReps'])
+    task = GymTask(game_config, nReps=hyp['alg_nReps'])
 
   job_count = 0  # Debug counter
-  verbose = os.environ.get('NEAT_VERBOSE', '0') == '1'
   
   # Evaluate any weight vectors sent this way
   while True:

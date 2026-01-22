@@ -55,11 +55,16 @@ def make_env(env_name, seed=-1, render_mode=False):
 
   elif env_name == 'SlimeVolley-Shaped-v0':
       from domain.slimevolley_shaped import SlimeVolleyShapedEnv
-      return SlimeVolleyShapedEnv()
+      return SlimeVolleyShapedEnv(enable_curriculum=False)
+
+  elif env_name == 'SlimeVolley-Shaped-Curriculum-v0':
+      from domain.slimevolley_shaped import SlimeVolleyShapedEnv
+      return SlimeVolleyShapedEnv(enable_curriculum=True, initial_curriculum_stage='touch')
 
   elif env_name == 'SlimeVolley-Curriculum-v0':
-      from domain.slimevolley_shaped import SlimeVolleyCurriculumEnv
-      return SlimeVolleyCurriculumEnv(initial_stage='touch')
+      # Backward compatibility alias
+      from domain.slimevolley_shaped import SlimeVolleyShapedEnv
+      return SlimeVolleyShapedEnv(enable_curriculum=True, initial_curriculum_stage='touch')
 
   # -- Slime Volleyball ---------------------------------------------- -- #
   elif (env_name.startswith("SlimeVolley")):

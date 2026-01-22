@@ -90,6 +90,9 @@ class SlimeVolleyShapedEnv(gym.Env):
         tracking_bonus: float = 0.02,       # Small bonus for moving toward ball
         game_outcome_weight: float = 10.0,  # Final multiplier for net game score
         shaping_scale: float = 1.0,         # Global scale for all shaping rewards
+        # Curriculum support
+        enable_curriculum: bool = False,     # Enable curriculum learning (allows stage switching)
+        initial_curriculum_stage: str = 'touch',  # Initial stage if curriculum enabled
     ):
         """
         Args:
@@ -100,6 +103,8 @@ class SlimeVolleyShapedEnv(gym.Env):
             tracking_bonus: Small reward for moving toward the ball
             game_outcome_weight: Weight multiplier for final game outcome (wins - losses)
             shaping_scale: Global multiplier for all shaping rewards (set 0 to disable)
+            enable_curriculum: If True, allows switching curriculum stages via set_curriculum_stage()
+            initial_curriculum_stage: Initial curriculum stage ('touch', 'rally', or 'win') if curriculum enabled
         """
         if not SLIMEVOLLEY_AVAILABLE:
             raise ImportError("slimevolleygym not installed")
@@ -108,13 +113,56 @@ class SlimeVolleyShapedEnv(gym.Env):
         # gym.make() wraps with OrderEnforcing which doesn't pass through otherAction
         self.env = BaseSlimeVolleyEnv()
         
-        # Reward configuration
-        self.touch_bonus = touch_bonus
-        self.rally_bonus = rally_bonus
-        self.self_goal_penalty = self_goal_penalty
-        self.ball_opponent_side_bonus = ball_opponent_side_bonus
-        self.tracking_bonus = tracking_bonus
-        self.game_outcome_weight = game_outcome_weight
+        # Curriculum support
+        self.enable_curriculum = enable_curriculum
+        self.current_stage = initial_curriculum_stage if enable_curriculum else None
+        
+        # Curriculum stage configurations (used if enable_curriculum=True)
+        self.CURRICULUM_CONFIGS = {
+            'touch': {
+                'touch_bonus': 0.3,
+                'rally_bonus': 0.2,
+                'self_goal_penalty': 0.1,
+                'ball_opponent_side_bonus': 0.02,
+                'tracking_bonus': 0.05,
+                'game_outcome_weight': 2.0,
+            },
+            'rally': {
+                'touch_bonus': 0.15,
+                'rally_bonus': 0.5,
+                'self_goal_penalty': 0.3,
+                'ball_opponent_side_bonus': 0.01,
+                'tracking_bonus': 0.02,
+                'game_outcome_weight': 5.0,
+            },
+            'win': {
+                'touch_bonus': 0.05,
+                'rally_bonus': 1.0,
+                'self_goal_penalty': 0.5,
+                'ball_opponent_side_bonus': 0.005,
+                'tracking_bonus': 0.01,
+                'game_outcome_weight': 10.0,
+            },
+        }
+        
+        # If curriculum enabled, use curriculum config for initial stage
+        if enable_curriculum and initial_curriculum_stage in self.CURRICULUM_CONFIGS:
+            config = self.CURRICULUM_CONFIGS[initial_curriculum_stage]
+            self.touch_bonus = config['touch_bonus']
+            self.rally_bonus = config['rally_bonus']
+            self.self_goal_penalty = config['self_goal_penalty']
+            self.ball_opponent_side_bonus = config['ball_opponent_side_bonus']
+            self.tracking_bonus = config['tracking_bonus']
+            self.game_outcome_weight = config['game_outcome_weight']
+        else:
+            # Use provided parameters (fixed rewards, no curriculum)
+            self.touch_bonus = touch_bonus
+            self.rally_bonus = rally_bonus
+            self.self_goal_penalty = self_goal_penalty
+            self.ball_opponent_side_bonus = ball_opponent_side_bonus
+            self.tracking_bonus = tracking_bonus
+            self.game_outcome_weight = game_outcome_weight
+        
         self.shaping_scale = shaping_scale
         
         self.max_steps = 3000
@@ -374,6 +422,28 @@ class SlimeVolleyShapedEnv(gym.Env):
             info['final_game_bonus'] = final_bonus
         
         return obs, total_reward, done, info
+    
+    def set_curriculum_stage(self, stage: str):
+        """
+        Switch to a different curriculum stage (only works if enable_curriculum=True).
+        
+        Args:
+            stage: Curriculum stage ('touch', 'rally', or 'win')
+        """
+        if not self.enable_curriculum:
+            raise ValueError("Curriculum is not enabled. Set enable_curriculum=True in __init__()")
+        
+        if stage not in self.CURRICULUM_CONFIGS:
+            raise ValueError(f"Unknown stage: {stage}. Use 'touch', 'rally', or 'win'")
+        
+        config = self.CURRICULUM_CONFIGS[stage]
+        self.touch_bonus = config['touch_bonus']
+        self.rally_bonus = config['rally_bonus']
+        self.self_goal_penalty = config['self_goal_penalty']
+        self.ball_opponent_side_bonus = config['ball_opponent_side_bonus']
+        self.tracking_bonus = config['tracking_bonus']
+        self.game_outcome_weight = config['game_outcome_weight']
+        self.current_stage = stage
     
     def reset(self):
         self.t = 0

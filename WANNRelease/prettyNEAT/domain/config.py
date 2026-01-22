@@ -151,18 +151,27 @@ games['slimevolley'] = slimevolley
 slimevolley_large = slimevolley._replace(layers=[30, 30])
 games['slimevolley_large'] = slimevolley_large
 
-# > SlimeVolley with reward shaping
+# > SlimeVolley with reward shaping (fixed rewards, no curriculum)
 slimevolley_shaped = slimevolley._replace(env_name='SlimeVolley-Shaped-v0')
 games['slimevolley_shaped'] = slimevolley_shaped
 
-# > SlimeVolley with curriculum learning (for self-play training)
+# > SlimeVolley with reward shaping + curriculum learning
 # Start with 'touch' stage, progress to 'rally', then 'win'
+slimevolley_shaped_curriculum = slimevolley._replace(env_name='SlimeVolley-Shaped-Curriculum-v0')
+games['slimevolley_shaped_curriculum'] = slimevolley_shaped_curriculum
+
+# > SlimeVolley with curriculum learning (backward compatibility alias)
 slimevolley_curriculum = slimevolley._replace(env_name='SlimeVolley-Curriculum-v0')
 games['slimevolley_curriculum'] = slimevolley_curriculum
 
-# > SlimeVolley with self-play (uses curriculum env + self-play in training)
-slimevolley_selfplay = slimevolley._replace(env_name='SlimeVolley-Curriculum-v0')
+# > SlimeVolley with self-play (can use either curriculum or non-curriculum)
+# Default: uses curriculum for adaptive difficulty
+slimevolley_selfplay = slimevolley._replace(env_name='SlimeVolley-Shaped-Curriculum-v0')
 games['slimevolley_selfplay'] = slimevolley_selfplay
+
+# > SlimeVolley with self-play but NO curriculum (fixed rewards)
+slimevolley_selfplay_no_curriculum = slimevolley._replace(env_name='SlimeVolley-Shaped-v0')
+games['slimevolley_selfplay_no_curriculum'] = slimevolley_selfplay_no_curriculum
 
 
 # -- Bipedal Walker ------------------------------------------------------ -- #
