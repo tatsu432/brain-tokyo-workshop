@@ -8,11 +8,18 @@ All SlimeVolley wrappers should inherit from this base class to ensure consisten
 """
 
 import logging
+import warnings
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
 from gymnasium.utils.seeding import np_random
 from typing import Optional
+
+# Suppress gym step API deprecation warning (from old gym package used by slimevolleygym)
+# Must be set before importing old gym to catch warnings during import
+warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*Initializing environment in old step API.*")
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="gym.wrappers.step_api_compatibility")
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="gym")
 
 from domain.slimevolley_actions import SlimeVolleyActionProcessor
 
@@ -20,8 +27,11 @@ logger = logging.getLogger(__name__)
 
 # Try to import slimevolleygym
 try:
-    import slimevolleygym
-    import gym as old_gym  # slimevolleygym uses old gym API
+    # Suppress warnings during import
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        import slimevolleygym
+        import gym as old_gym  # slimevolleygym uses old gym API
 
     # Apply rendering patch to fix gym rendering compatibility issues
     try:
@@ -80,7 +90,9 @@ class BaseSlimeVolleyEnv(gym.Env):
         # Create the base SlimeVolley environment
         # slimevolleygym uses old gym API, not gymnasium
         # Disable env checker to avoid numpy 2.x compatibility issues
-        self.env = old_gym.make(env_id, disable_env_checker=True)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=DeprecationWarning)
+            self.env = old_gym.make(env_id, disable_env_checker=True)
 
         # Environment properties
         self.max_steps = max_steps

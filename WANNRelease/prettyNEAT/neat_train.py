@@ -4,7 +4,14 @@ import time
 import math
 import argparse
 import subprocess
+import warnings
 import numpy as np
+
+# Suppress gym step API deprecation warning
+# Filter by message pattern and by module to catch all variations
+warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*Initializing environment in old step API.*")
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="gym.wrappers.step_api_compatibility")
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="gym")
 
 np.set_printoptions(precision=2, linewidth=160)
 

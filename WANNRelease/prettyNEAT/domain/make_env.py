@@ -1,6 +1,10 @@
 import numpy as np
+import warnings
 import gymnasium as gym
 from matplotlib.pyplot import imread
+
+# Suppress gym step API deprecation warning
+warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*Initializing environment in old step API.*")
 
 
 def make_env(env_name, seed=-1, render_mode=False):

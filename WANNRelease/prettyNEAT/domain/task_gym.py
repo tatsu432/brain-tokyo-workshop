@@ -88,14 +88,14 @@ class GymTask:
 
         for iRep in range(nRep):
             if track_actions:
-                rep_reward, rep_action_dist, rep_raw_reward = self.testInd(
+                rep_reward, rep_action_dist, rep_raw_reward = self._testInd(
                     wVec, aVec, view=view, seed=seed + iRep, track_actions=True
                 )
                 reward[iRep] = rep_reward
                 raw_reward[iRep] = rep_raw_reward
                 action_dist += rep_action_dist
             else:
-                result = self.testInd(wVec, aVec, view=view, seed=seed + iRep)
+                result = self._testInd(wVec, aVec, view=view, seed=seed + iRep)
                 if isinstance(result, tuple):
                     reward[iRep], raw_reward[iRep] = result
                 else:
@@ -122,7 +122,7 @@ class GymTask:
 
         return fitness
 
-    def testInd(self, wVec, aVec, view=False, seed=-1, track_actions=False):
+    def _testInd(self, wVec, aVec, view=False, seed=-1, track_actions=False):
         """Evaluate individual on task
         Args:
           wVec    - (np_array) - weight matrix as a flattened vector
