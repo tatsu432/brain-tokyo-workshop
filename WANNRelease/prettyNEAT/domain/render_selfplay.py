@@ -28,8 +28,17 @@ import json
 import tempfile
 import traceback
 import subprocess
+import logging
 import numpy as np
 from typing import Optional, List, Tuple
+
+# Set up logger for render operations (defaults to INFO level, DEBUG messages hidden)
+logger = logging.getLogger(__name__)
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter('[%(name)s] %(message)s'))
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)  # Default to INFO, so DEBUG messages are hidden
 
 
 def _save_render_data(
@@ -112,31 +121,31 @@ def _render_episode(
     sys.stdout = os.fdopen(sys.stdout.fileno(), "w", buffering=1)
     sys.stderr = os.fdopen(sys.stderr.fileno(), "w", buffering=1)
 
-    print(f"[RenderWorker] Starting render for generation {generation}", flush=True)
+    logger.debug(f"Starting render for generation {generation}")
 
     # Import slimevolleygym directly to ensure pygame is initialized
     try:
         import slimevolleygym
         from slimevolleygym.slimevolley import SlimeVolleyEnv
 
-        print(f"[RenderWorker] SlimeVolley imported successfully", flush=True)
+        logger.debug("SlimeVolley imported successfully")
     except ImportError as e:
-        print(f"[RenderWorker] Failed to import slimevolleygym: {e}", flush=True)
+        logger.error(f"Failed to import slimevolleygym: {e}")
         raise
 
     # Import NEAT modules
     try:
         from neat_src import act, selectAct
 
-        print(f"[RenderWorker] NEAT modules imported successfully", flush=True)
+        logger.debug("NEAT modules imported successfully")
     except ImportError as e:
-        print(f"[RenderWorker] Failed to import neat_src: {e}", flush=True)
+        logger.error(f"Failed to import neat_src: {e}")
         raise
 
     # Create environment - use the base SlimeVolleyEnv directly for rendering
     # This avoids any wrapper issues
     env = SlimeVolleyEnv()
-    print(f"[RenderWorker] Environment created", flush=True)
+    logger.debug("Environment created")
 
     # Clean weights
     wVec = np.copy(wVec)
@@ -195,7 +204,7 @@ def _render_episode(
         # Default
         return [0, 0, 0]
 
-    print(f"[RenderWorker] Starting episode loop...", flush=True)
+    logger.debug("Starting episode loop...")
 
     try:
         for step in range(max_steps):
@@ -234,14 +243,13 @@ def _render_episode(
                 time.sleep(frame_delay - elapsed)
 
             if done:
-                print(f"[RenderWorker] Episode done at step {step}", flush=True)
+                logger.debug(f"Episode done at step {step}")
                 break
 
     except KeyboardInterrupt:
-        print(f"[RenderWorker] Interrupted by user", flush=True)
+        logger.info("Interrupted by user")
     except Exception as e:
-        print(f"[RenderWorker] Error during episode: {e}", flush=True)
-        traceback.print_exc()
+        logger.error(f"Error during episode: {e}", exc_info=True)
 
     # Print final stats
     print(f"\n{'='*50}", flush=True)
@@ -254,7 +262,7 @@ def _render_episode(
     time.sleep(2.0)
 
     env.close()
-    print(f"[RenderWorker] Environment closed", flush=True)
+    logger.debug("Environment closed")
 
 
 def _mirror_observation(state: np.ndarray) -> np.ndarray:
@@ -378,8 +386,8 @@ class RenderManager:
 
         # Check if a render is already in progress
         if self._is_process_alive():
-            print(
-                f"[RenderManager] Skipping render at gen {generation}: previous render still running"
+            logger.debug(
+                f"Skipping render at gen {generation}: previous render still running"
             )
             return False
 
@@ -413,7 +421,7 @@ class RenderManager:
         self._cleanup_process()
 
         if self._is_process_alive():
-            print(f"[RenderManager] Previous render still running, skipping")
+            logger.debug("Previous render still running, skipping")
             return
 
         # Select opponent
@@ -465,8 +473,8 @@ class RenderManager:
             stderr=None,  # Inherit stderr
         )
 
-        print(
-            f"[RenderManager] Started render process (PID: {self._current_process.pid}) for generation {generation}"
+        logger.debug(
+            f"Started render process (PID: {self._current_process.pid}) for generation {generation}"
         )
 
     def update_archive(self, archive: List[Tuple[np.ndarray, np.ndarray, float, int]]):
@@ -501,12 +509,12 @@ class RenderManager:
     def stop(self):
         """Stop any running render process."""
         if self._current_process is not None and self._is_process_alive():
-            print(f"[RenderManager] Terminating render process...", flush=True)
+            logger.debug("Terminating render process...")
             self._current_process.terminate()
             try:
                 self._current_process.wait(timeout=2.0)
             except subprocess.TimeoutExpired:
-                print(f"[RenderManager] Force killing render process...", flush=True)
+                logger.debug("Force killing render process...")
                 self._current_process.kill()
                 self._current_process.wait(timeout=1.0)
         self._cleanup_process()
@@ -568,7 +576,7 @@ def render_individual(
 
 def _run_from_file(filepath: str):
     """Run rendering from a data file. Called by subprocess."""
-    print(f"[RenderSubprocess] Loading data from {filepath}", flush=True)
+    logger.debug(f"Loading data from {filepath}")
 
     data = _load_render_data(filepath)
 
@@ -576,9 +584,8 @@ def _run_from_file(filepath: str):
     if data["opponent_wVec"] is not None:
         opponent_data = (data["opponent_wVec"], data["opponent_aVec"])
 
-    print(
-        f"[RenderSubprocess] Starting render for generation {data['generation']}",
-        flush=True,
+    logger.debug(
+        f"Starting render for generation {data['generation']}"
     )
 
     _render_episode(
@@ -593,7 +600,7 @@ def _run_from_file(filepath: str):
         data["render_fps"],
     )
 
-    print(f"[RenderSubprocess] Render complete", flush=True)
+    logger.debug("Render complete")
 
 
 if __name__ == "__main__":
@@ -619,8 +626,7 @@ if __name__ == "__main__":
         try:
             _run_from_file(args.render_file)
         except Exception as e:
-            print(f"[RenderSubprocess] ERROR: {e}", flush=True)
-            traceback.print_exc()
+            logger.error(f"ERROR: {e}", exc_info=True)
             sys.exit(1)
     else:
         # Test mode
