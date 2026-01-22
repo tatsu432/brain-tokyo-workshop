@@ -21,7 +21,8 @@ import sys
 if not logging.root.handlers:
     logging.basicConfig(
         level=logging.INFO,
-        format='[%(name)s] %(message)s',
+        format='[%(asctime)s] %(message)s',
+        datefmt='%H:%M',
         stream=sys.stdout,
         force=True  # Override any existing configuration
     )
