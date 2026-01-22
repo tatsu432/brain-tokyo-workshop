@@ -86,6 +86,20 @@ class DataGatherer:
             "show_species": True,  # Show species count
             "show_complexity": True,  # Show node/conn counts
             "show_actions": True,  # Show action distribution
+            "show_shaped_details": False,  # Show detailed shaped reward components
+        }
+
+        # Shaped reward component tracking (population averages per generation)
+        self.shaped_stats_history = []  # List of dicts, one per generation
+        self.current_shaped_stats = None  # Current generation's shaped stats
+        
+        # Shaped component field names for display
+        self.shaped_stat_labels = {
+            "avg_touches": "Touch",
+            "avg_rallies_won": "RallyW",
+            "avg_rallies_lost": "RallyL",
+            "avg_ball_time_opponent_side": "BallOpp",
+            "avg_tracking_reward": "Track",
         }
 
         # Action distribution tracking
@@ -106,6 +120,7 @@ class DataGatherer:
         species: Species,
         action_dist: np.ndarray = None,
         raw_fitness: np.ndarray = None,
+        shaped_stats: dict = None,
     ) -> None:
         """Collect and stores run data
         This is called once per generation (or once per "iteration" of the algorithm).
@@ -116,6 +131,9 @@ class DataGatherer:
           action_dist - (np_array) - aggregated action distribution [nOutput x n_bins]
           raw_fitness - (np_array) - raw fitness (actual game reward) for each individual
                         If None, raw fitness is assumed to equal total fitness (no shaping)
+          shaped_stats - (dict)    - aggregated shaped reward component statistics
+                        Keys: avg_touches, avg_rallies_won, avg_rallies_lost,
+                              avg_ball_time_opponent_side, avg_tracking_reward
         """
 
         # Readability
@@ -219,6 +237,16 @@ class DataGatherer:
             self.current_action_dist = action_dist
         # ------------------------------------------------------------------------
 
+        # --- Shaped Reward Component Stats --------------------------------------
+        if shaped_stats is not None:
+            self.shaped_stats_history.append(shaped_stats.copy())
+            self.current_shaped_stats = shaped_stats
+        else:
+            # Store empty dict if no stats provided
+            self.shaped_stats_history.append({})
+            self.current_shaped_stats = {}
+        # ------------------------------------------------------------------------
+
     def set_display_config(self, **kwargs):
         """Configure which metrics to display.
 
@@ -278,6 +306,33 @@ class DataGatherer:
             )
 
         output = " | ".join(parts)
+
+        # --- Shaped reward component details ---
+        if cfg.get("show_shaped_details", False) and self.current_shaped_stats:
+            shaped_parts = []
+            stats = self.current_shaped_stats
+            
+            # Ball touches
+            if "avg_touches" in stats:
+                shaped_parts.append("Touch:{:.1f}".format(stats["avg_touches"]))
+            
+            # Rallies won/lost
+            if "avg_rallies_won" in stats:
+                shaped_parts.append("RallyW:{:.1f}".format(stats["avg_rallies_won"]))
+            if "avg_rallies_lost" in stats:
+                shaped_parts.append("RallyL:{:.1f}".format(stats["avg_rallies_lost"]))
+            
+            # Ball time on opponent side (as percentage of steps)
+            if "avg_ball_time_opponent_side" in stats:
+                ball_opp = stats["avg_ball_time_opponent_side"]
+                shaped_parts.append("BallOpp:{:.0f}".format(ball_opp))
+            
+            # Tracking reward (cumulative)
+            if "avg_tracking_reward" in stats:
+                shaped_parts.append("Track:{:.2f}".format(stats["avg_tracking_reward"]))
+            
+            if shaped_parts:
+                output += " | Shp: " + " ".join(shaped_parts)
 
         # --- Action distribution ---
         if cfg["show_actions"] and self.current_action_dist is not None:

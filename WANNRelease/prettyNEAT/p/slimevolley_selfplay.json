@@ -55,6 +55,7 @@
   "render_use_archive_opponent": true,
   
   "_comment_display": "Display configuration - toggle which metrics to show",
+  "_comment_display_note": "show_shaped_details: Show individual shaped reward components (Touch, RallyW, RallyL, BallOpp, Track)",
   "display_config": {
     "show_elite_total": true,
     "show_elite_raw": true,
@@ -62,7 +63,8 @@
     "show_best_raw": true,
     "show_species": true,
     "show_complexity": true,
-    "show_actions": true
+    "show_actions": true,
+    "show_shaped_details": true
   },
   
   "_comment_neat": "NEAT algorithm parameters"

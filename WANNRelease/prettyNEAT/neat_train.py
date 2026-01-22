@@ -238,7 +238,8 @@ def master():
         neat.tell(reward)  # Send fitness to NEAT
 
         data = gatherData(
-            data, neat, gen, hyp, action_dist=action_dist, raw_fitness=raw_reward
+            data, neat, gen, hyp, action_dist=action_dist, raw_fitness=raw_reward,
+            shaped_stats=pop_stats
         )
 
         # Display with curriculum/self-play info
@@ -451,7 +452,7 @@ def load_archive(fileName):
         )
 
 
-def gatherData(data, neat, gen, hyp, savePop=False, action_dist=None, raw_fitness=None):
+def gatherData(data, neat, gen, hyp, savePop=False, action_dist=None, raw_fitness=None, shaped_stats=None):
     """Collects run data, saves it to disk, and exports pickled population
 
     Args:
@@ -464,12 +465,14 @@ def gatherData(data, neat, gen, hyp, savePop=False, action_dist=None, raw_fitnes
       savePop    - (bool)          - save current population to disk?
       action_dist - (np_array)     - aggregated action distribution [nOutput x n_bins]
       raw_fitness - (np_array)     - raw fitness values (actual game reward) for each individual
+      shaped_stats - (dict)        - aggregated shaped reward component statistics
 
     Return:
       data - (DataGatherer) - updated run data
     """
     data.gatherData(
-        neat.pop, neat.species, action_dist=action_dist, raw_fitness=raw_fitness
+        neat.pop, neat.species, action_dist=action_dist, raw_fitness=raw_fitness,
+        shaped_stats=shaped_stats
     )
     if (gen % hyp["save_mod"]) == 0:
         data = checkBest(data)
@@ -563,10 +566,12 @@ def batchMpiEval(
     # Initialize action distribution aggregator
     action_dist_agg = None
 
-    # Aggregate episode statistics for curriculum learning
+    # Aggregate episode statistics for curriculum learning and shaped reward tracking
     total_touches = 0
     total_rallies_won = 0
     total_rallies_lost = 0
+    total_ball_time_opponent_side = 0
+    total_tracking_reward = 0.0
     total_episodes = 0
 
     i = 0  # Index of fitness we are filling
@@ -625,6 +630,8 @@ def batchMpiEval(
                     total_touches += ep_stats.get("ball_touches", 0)
                     total_rallies_won += ep_stats.get("rallies_won", 0)
                     total_rallies_lost += ep_stats.get("rallies_lost", 0)
+                    total_ball_time_opponent_side += ep_stats.get("ball_time_opponent_side", 0)
+                    total_tracking_reward += ep_stats.get("tracking_reward", 0.0)
                     total_episodes += 1
                 except:
                     # Worker may not send stats if environment doesn't support it
@@ -651,11 +658,13 @@ def batchMpiEval(
             total[total == 0] = 1
             action_dist_agg = action_dist_agg / total
 
-    # Compute population statistics for curriculum learning
+    # Compute population statistics for curriculum learning and shaped reward tracking
     pop_stats = {
         "avg_touches": total_touches / max(total_episodes, 1),
         "avg_rallies_won": total_rallies_won / max(total_episodes, 1),
         "avg_rallies_lost": total_rallies_lost / max(total_episodes, 1),
+        "avg_ball_time_opponent_side": total_ball_time_opponent_side / max(total_episodes, 1),
+        "avg_tracking_reward": total_tracking_reward / max(total_episodes, 1),
     }
 
     if track_actions:
@@ -695,10 +704,12 @@ def batchMpiEvalSelfPlay(
     raw_reward = np.empty(nJobs, dtype=np.float64)  # Track raw fitness
     action_dist_agg = None
 
-    # Aggregate episode statistics
+    # Aggregate episode statistics for curriculum learning and shaped reward tracking
     total_touches = 0
     total_rallies_won = 0
     total_rallies_lost = 0
+    total_ball_time_opponent_side = 0
+    total_tracking_reward = 0.0
     total_episodes = 0
 
     if verbose:
@@ -777,6 +788,8 @@ def batchMpiEvalSelfPlay(
                 total_touches += ep_stats.get("ball_touches", 0)
                 total_rallies_won += ep_stats.get("rallies_won", 0)
                 total_rallies_lost += ep_stats.get("rallies_lost", 0)
+                total_ball_time_opponent_side += ep_stats.get("ball_time_opponent_side", 0)
+                total_tracking_reward += ep_stats.get("tracking_reward", 0.0)
                 total_episodes += 1
 
                 # Receive raw fitness
@@ -799,11 +812,13 @@ def batchMpiEvalSelfPlay(
             total[total == 0] = 1
             action_dist_agg = action_dist_agg / total
 
-    # Compute population statistics
+    # Compute population statistics for curriculum learning and shaped reward tracking
     pop_stats = {
         "avg_touches": total_touches / max(total_episodes, 1),
         "avg_rallies_won": total_rallies_won / max(total_episodes, 1),
         "avg_rallies_lost": total_rallies_lost / max(total_episodes, 1),
+        "avg_ball_time_opponent_side": total_ball_time_opponent_side / max(total_episodes, 1),
+        "avg_tracking_reward": total_tracking_reward / max(total_episodes, 1),
     }
 
     return reward, action_dist_agg, pop_stats, raw_reward

@@ -47,6 +47,7 @@
         "show_best_raw": true,
         "show_species": true,
         "show_complexity": true,
-        "show_actions": true
+        "show_actions": true, 
+        "show_shaped_details": true 
     }
 }
