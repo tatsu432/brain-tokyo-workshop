@@ -21,6 +21,9 @@ rank = comm.Get_rank()
 from neat_src import * # NEAT
 from domain import *   # Task environments
 
+# Non-blocking rendering (only import in master process to avoid MPI issues)
+render_manager = None
+
 # 1 master + many workers
 # master: evolution logic
 # workers: evaluate fitness
@@ -65,7 +68,7 @@ opponent_archive = []  # List of (wVec, aVec, fitness, generation) tuples
 def master(): 
   """Main NEAT optimization script
   """
-  global fileName, hyp, selfplay_config, opponent_archive
+  global fileName, hyp, selfplay_config, opponent_archive, render_manager
   data = DataGatherer(fileName, hyp)
   
   # Check for verbose mode via environment variable
@@ -76,6 +79,24 @@ def master():
   # Set discrete action flag based on task config
   task_config = games[hyp['task']]
   data.is_discrete_action = (task_config.actionSelect in ['prob', 'hard'])
+  
+  # Initialize rendering manager (non-blocking visualization)
+  render_enabled = hyp.get('render_enabled', False)
+  if render_enabled:
+    from domain.render_selfplay import RenderManager
+    render_interval = hyp.get('render_interval', 10)
+    render_fps = hyp.get('render_fps', 50)
+    render_max_steps = hyp.get('render_max_steps', 3000)
+    
+    render_manager = RenderManager(
+      render_interval=render_interval,
+      render_fps=render_fps,
+      max_steps=render_max_steps,
+      enabled=True
+    )
+    print(f"Rendering ENABLED: every {render_interval} generations @ {render_fps} FPS")
+  else:
+    render_manager = None
   
   # Check if self-play is enabled
   selfplay_config.enabled = hyp.get('selfplay_enabled', False)
@@ -162,6 +183,27 @@ def master():
       print(f"{gen} \t - \t {data.display()} | Stage: {curriculum_stage}, Archive: {len(opponent_archive)}")
     else:
       print(gen, '\t - \t', data.display())
+    
+    # Trigger non-blocking rendering of best individual
+    if render_manager is not None and render_manager.should_render(gen):
+      # Get best individual from population
+      best_idx = np.argmax(reward)
+      best_ind = pop[best_idx]
+      
+      # Update archive in render manager for self-play visualization
+      if selfplay_config.enabled and opponent_archive:
+        render_manager.update_archive(opponent_archive)
+      
+      # Start non-blocking render
+      render_manager.render_best(
+        wVec=best_ind.wMat.flatten(),
+        aVec=best_ind.aVec.flatten(),
+        nInput=task_config.input_size,
+        nOutput=task_config.output_size,
+        actSelect=task_config.actionSelect,
+        generation=gen,
+        use_random_archive_opponent=hyp.get('render_use_archive_opponent', True)
+      )
 
   # Clean up and data gathering at run end
   data = gatherData(data,neat,gen,hyp,savePop=True)
@@ -171,6 +213,12 @@ def master():
   # Save archive if self-play was used
   if selfplay_config.enabled and opponent_archive:
     save_archive(fileName)
+  
+  # Clean up render manager
+  if render_manager is not None:
+    print("Waiting for render to finish...")
+    render_manager.wait_for_render(timeout=10.0)
+    render_manager.stop()
   
   stopAllWorkers()
 
@@ -743,6 +791,18 @@ def main(argv):
 
   hyp = loadHyp(pFileName=hyp_default)
   updateHyp(hyp,hyp_adjust)
+  
+  # Apply command-line rendering overrides (only affects master)
+  if args.render:
+    hyp['render_enabled'] = True
+  if args.no_render:
+    hyp['render_enabled'] = False
+  if args.render_interval is not None:
+    hyp['render_interval'] = args.render_interval
+    if args.render_interval > 0:
+      hyp['render_enabled'] = True
+  if args.render_fps is not None:
+    hyp['render_fps'] = args.render_fps
 
   # Launch main thread and workers
   if (rank == 0):
@@ -765,6 +825,19 @@ if __name__ == "__main__":
   
   parser.add_argument('-n', '--num_worker', type=int,\
    help='number of cores to use', default=8)
+  
+  # Rendering options (override config file)
+  parser.add_argument('--render', action='store_true',\
+   help='enable rendering during training')
+  
+  parser.add_argument('--no-render', action='store_true',\
+   help='disable rendering during training')
+  
+  parser.add_argument('--render-interval', type=int, default=None,\
+   help='render every N generations (e.g., 10)')
+  
+  parser.add_argument('--render-fps', type=int, default=None,\
+   help='rendering frames per second')
 
   args = parser.parse_args()
 
