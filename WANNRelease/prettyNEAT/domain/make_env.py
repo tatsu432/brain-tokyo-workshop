@@ -5,6 +5,8 @@ from matplotlib.pyplot import imread
 
 # Suppress gym step API deprecation warning
 warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*Initializing environment in old step API.*")
+# Suppress render mode deprecation warning
+warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*The argument mode in render method is deprecated.*")
 
 
 def make_env(env_name, seed=-1, render_mode=False):
@@ -100,7 +102,15 @@ def make_env(env_name, seed=-1, render_mode=False):
 
     # -- Other  -------------------------------------------------------- -- #
     else:
-        env = gym.make(env_name)
+        # Pass render_mode during initialization if needed
+        render_kwargs = {}
+        if render_mode:
+            # Convert boolean to string if needed
+            if isinstance(render_mode, bool):
+                render_kwargs["render_mode"] = "human" if render_mode else None
+            else:
+                render_kwargs["render_mode"] = render_mode
+        env = gym.make(env_name, **render_kwargs)
 
     if seed >= 0:
         env.seed(seed)

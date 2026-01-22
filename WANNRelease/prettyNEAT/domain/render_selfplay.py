@@ -225,8 +225,8 @@ def _render_episode(
 
             total_reward += reward
 
-            # Render
-            env.render(mode="human")
+            # Render - call without mode parameter (render_mode should be set at init)
+            env.render()
 
             # Control frame rate
             elapsed = time.time() - start_time

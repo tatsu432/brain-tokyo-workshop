@@ -219,7 +219,7 @@ class BaseSlimeVolleyEnv(gym.Env):
         Render the environment using slimevolleygym's native rendering.
         
         Args:
-            mode: Render mode ('human' or 'rgb_array')
+            mode: Render mode ('human' or 'rgb_array') - deprecated, kept for compatibility
             close: Whether to close the rendering
             
         Returns:
@@ -232,8 +232,13 @@ class BaseSlimeVolleyEnv(gym.Env):
             return
 
         # Use the actual slimevolleygym rendering
+        # Note: old gym (slimevolleygym) still uses mode parameter, so we pass it
+        # but suppress the deprecation warning since this is for old gym compatibility
         try:
-            return self.env.render(mode=mode)
+            import warnings
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*render.*mode.*")
+                return self.env.render(mode=mode)
         except Exception as e:
             if not self._render_warning_shown:
                 logger.warning(f"Rendering error: {e}")

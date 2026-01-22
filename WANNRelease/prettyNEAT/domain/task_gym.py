@@ -178,8 +178,10 @@ class GymTask:
         if self.maxEpisodeLength == 0:
             if view:
                 if self.needsClosed:
+                    # For CartPoleSwingUp, close parameter is still used
                     self.env.render(close=done)
                 else:
+                    # Call render() without mode parameter (render_mode set at init)
                     self.env.render()
                 time.sleep(0.02)  # ~50 FPS for smooth visualization
             if track_actions:
@@ -205,8 +207,10 @@ class GymTask:
 
             if view:
                 if self.needsClosed:
+                    # For CartPoleSwingUp, close parameter is still used
                     self.env.render(close=done)
                 else:
+                    # Call render() without mode parameter (render_mode set at init)
                     self.env.render()
                 time.sleep(0.02)  # ~50 FPS for smooth visualization
             if done:

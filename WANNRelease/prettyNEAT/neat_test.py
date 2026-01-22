@@ -25,7 +25,8 @@ def main(argv):
 
     # Bullet needs some extra help getting started
     if hyp["task"].startswith("bullet"):
-        task.env.render("human")
+        # Call render() without mode parameter (render_mode should be set at init if needed)
+        task.env.render()
 
     # Import and Test network
     wVec, aVec, wKey = importNet(infile)
@@ -136,6 +137,7 @@ def testSlimeVolleyRaw(task, wVec, aVec, view=False, nRep=1, seed=-1):
                 rallies_lost += 1
 
             if view:
+                # Call render() without mode parameter
                 test_env.render()
                 time.sleep(0.02)
 
