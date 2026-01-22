@@ -57,6 +57,10 @@ def make_env(env_name, seed=-1, render_mode=False):
       from domain.slimevolley_shaped import SlimeVolleyShapedEnv
       return SlimeVolleyShapedEnv()
 
+  elif env_name == 'SlimeVolley-Curriculum-v0':
+      from domain.slimevolley_shaped import SlimeVolleyCurriculumEnv
+      return SlimeVolleyCurriculumEnv(initial_stage='touch')
+
   # -- Slime Volleyball ---------------------------------------------- -- #
   elif (env_name.startswith("SlimeVolley")):
     # Support different variants:

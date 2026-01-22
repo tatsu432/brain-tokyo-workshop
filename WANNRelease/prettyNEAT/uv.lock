@@ -138,14 +138,14 @@ wheels = [
 
 [[package]]
 name = "gym"
-version = "0.23.1"
+version = "0.25.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cloudpickle" },
     { name = "gym-notices" },
     { name = "numpy" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/87/86/3f5467531428b6ce6f3c12d3121b4304d2ea1536a50775a4df036add37b8/gym-0.23.1.tar.gz", hash = "sha256:d0f9b9da34edbdace421c9442fc9205d03b8d15d0fb451053c766cde706d40e0", size = 626191, upload-time = "2022-03-14T22:44:47.272Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/1c/5c/e5c14f3474e91038a51ec794350c7af9635a2faf3873c85989bf9dd127ce/gym-0.25.2.tar.gz", hash = "sha256:c8323f4c6f37363710b519742a0094316deddc9d8fc9e3f6deac08d6da47150c", size = 734530, upload-time = "2022-08-19T21:17:59.292Z" }
 
 [[package]]
 name = "gym-notices"
@@ -510,7 +510,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "gym", specifier = "==0.23.1" },
+    { name = "gym", specifier = "==0.25.2" },
     { name = "gymnasium", specifier = ">=0.29.0" },
     { name = "matplotlib", specifier = ">=3.10.8" },
     { name = "mpi4py", specifier = ">=4.1.1" },

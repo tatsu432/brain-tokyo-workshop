@@ -155,6 +155,15 @@ games['slimevolley_large'] = slimevolley_large
 slimevolley_shaped = slimevolley._replace(env_name='SlimeVolley-Shaped-v0')
 games['slimevolley_shaped'] = slimevolley_shaped
 
+# > SlimeVolley with curriculum learning (for self-play training)
+# Start with 'touch' stage, progress to 'rally', then 'win'
+slimevolley_curriculum = slimevolley._replace(env_name='SlimeVolley-Curriculum-v0')
+games['slimevolley_curriculum'] = slimevolley_curriculum
+
+# > SlimeVolley with self-play (uses curriculum env + self-play in training)
+slimevolley_selfplay = slimevolley._replace(env_name='SlimeVolley-Curriculum-v0')
+games['slimevolley_selfplay'] = slimevolley_selfplay
+
 
 # -- Bipedal Walker ------------------------------------------------------ -- #
 

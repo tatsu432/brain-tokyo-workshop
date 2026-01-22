@@ -26,32 +26,277 @@ from domain import *   # Task environments
 # workers: evaluate fitness
 
 
+# -- Self-Play Configuration ------------------------------------------------ -- #
+
+class SelfPlayConfig:
+    """Configuration for self-play training."""
+    
+    def __init__(self):
+        # Whether to enable self-play
+        self.enabled = False
+        
+        # Evaluation mode: 'baseline', 'archive', 'mixed'
+        self.eval_mode = 'mixed'
+        
+        # Weight for baseline vs archive evaluation
+        self.baseline_weight = 0.6
+        self.archive_weight = 0.4
+        
+        # Number of archive opponents to sample
+        self.n_archive_opponents = 3
+        
+        # Archive settings
+        self.max_archive_size = 50
+        self.archive_add_frequency = 5  # Add best every N generations
+        self.archive_fitness_threshold = -3.0  # Min fitness to add to archive
+        
+        # Curriculum settings
+        self.enable_curriculum = True
+        self.touch_threshold = 5.0  # Avg touches to advance from 'touch' stage
+        self.rally_threshold = 0.0  # Avg rally diff to advance from 'rally' stage
+
+
+# Global self-play state
+selfplay_config = SelfPlayConfig()
+opponent_archive = []  # List of (wVec, aVec, fitness, generation) tuples
+
+
 # -- Run NEAT ------------------------------------------------------------ -- #
 def master(): 
   """Main NEAT optimization script
   """
-  global fileName, hyp
+  global fileName, hyp, selfplay_config, opponent_archive
   data = DataGatherer(fileName, hyp)
+  
+  # Check for verbose mode via environment variable
+  verbose = os.environ.get('NEAT_VERBOSE', '0') == '1'
+  if verbose:
+    print("[Master] Verbose mode ENABLED", flush=True)
   
   # Set discrete action flag based on task config
   task_config = games[hyp['task']]
   data.is_discrete_action = (task_config.actionSelect in ['prob', 'hard'])
   
+  # Check if self-play is enabled
+  selfplay_config.enabled = hyp.get('selfplay_enabled', False)
+  if selfplay_config.enabled:
+    print("Self-play mode ENABLED")
+    selfplay_config.eval_mode = hyp.get('selfplay_eval_mode', 'mixed')
+    selfplay_config.baseline_weight = hyp.get('selfplay_baseline_weight', 0.6)
+    selfplay_config.archive_weight = hyp.get('selfplay_archive_weight', 0.4)
+    selfplay_config.n_archive_opponents = hyp.get('selfplay_n_archive_opponents', 3)
+    selfplay_config.archive_add_frequency = hyp.get('selfplay_archive_add_freq', 5)
+    selfplay_config.enable_curriculum = hyp.get('selfplay_enable_curriculum', True)
+    
+    # Initialize curriculum tracking
+    curriculum_stage = 'touch'
+    if hasattr(data, 'selfplay_stats'):
+      pass
+    else:
+      data.selfplay_stats = {
+        'avg_touches': [],
+        'avg_rallies_won': [],
+        'avg_rallies_lost': [],
+        'curriculum_stage': [],
+        'archive_size': [],
+      }
+  
   neat = Neat(hyp)
 
-  for gen in range(hyp['maxGen']):        
+  for gen in range(hyp['maxGen']):
+    if verbose:
+      print(f"\n[Master] ===== Generation {gen} =====", flush=True)
+          
     pop = neat.ask()            # Get newly evolved individuals from NEAT  
-    reward, action_dist = batchMpiEval(pop, track_actions=True)  # Send pop to be evaluated by workers
+    
+    # Evaluate population (with self-play if enabled)
+    if selfplay_config.enabled:
+      reward, action_dist, pop_stats = batchMpiEvalSelfPlay(pop, track_actions=True, verbose=verbose)
+      
+      # Update curriculum based on population statistics
+      if selfplay_config.enable_curriculum:
+        curriculum_stage = update_curriculum(pop_stats, curriculum_stage)
+        broadcast_curriculum_stage(curriculum_stage)
+      
+      # Add best individual to archive periodically
+      if gen % selfplay_config.archive_add_frequency == 0 and gen > 0:
+        best_idx = np.argmax(reward)
+        best_fitness = reward[best_idx]
+        
+        if verbose:
+          print(f"[Master] Gen {gen}: Checking archive add (best_fitness={best_fitness:.2f}, threshold={selfplay_config.archive_fitness_threshold})", flush=True)
+        
+        if best_fitness > selfplay_config.archive_fitness_threshold:
+          best_ind = pop[best_idx]
+          wVec_to_add = best_ind.wMat.flatten()
+          aVec_to_add = best_ind.aVec.flatten()
+          
+          if verbose:
+            print(f"[Master] Adding to archive: wVec shape={wVec_to_add.shape}, aVec shape={aVec_to_add.shape}", flush=True)
+          
+          add_to_archive(
+            wVec_to_add,
+            aVec_to_add,
+            best_fitness,
+            gen
+          )
+          # Broadcast updated archive to workers
+          broadcast_archive()
+      
+      # Track self-play stats
+      data.selfplay_stats['avg_touches'].append(pop_stats.get('avg_touches', 0))
+      data.selfplay_stats['avg_rallies_won'].append(pop_stats.get('avg_rallies_won', 0))
+      data.selfplay_stats['avg_rallies_lost'].append(pop_stats.get('avg_rallies_lost', 0))
+      data.selfplay_stats['curriculum_stage'].append(curriculum_stage)
+      data.selfplay_stats['archive_size'].append(len(opponent_archive))
+      
+    else:
+      reward, action_dist = batchMpiEval(pop, track_actions=True)
+    
     neat.tell(reward)           # Send fitness to NEAT    
 
-    data = gatherData(data,neat,gen,hyp,action_dist=action_dist)
-    print(gen, '\t - \t', data.display())
+    data = gatherData(data, neat, gen, hyp, action_dist=action_dist)
+    
+    # Display with self-play info
+    if selfplay_config.enabled:
+      print(f"{gen} \t - \t {data.display()} | Stage: {curriculum_stage}, Archive: {len(opponent_archive)}")
+    else:
+      print(gen, '\t - \t', data.display())
 
   # Clean up and data gathering at run end
   data = gatherData(data,neat,gen,hyp,savePop=True)
   data.save()
   data.savePop(neat.pop,fileName) # Save population as 2D numpy arrays
+  
+  # Save archive if self-play was used
+  if selfplay_config.enabled and opponent_archive:
+    save_archive(fileName)
+  
   stopAllWorkers()
+
+
+def update_curriculum(pop_stats, current_stage):
+  """Update curriculum stage based on population statistics."""
+  global selfplay_config
+  
+  avg_touches = pop_stats.get('avg_touches', 0)
+  avg_rally_diff = pop_stats.get('avg_rallies_won', 0) - pop_stats.get('avg_rallies_lost', 0)
+  
+  if current_stage == 'touch':
+    if avg_touches >= selfplay_config.touch_threshold:
+      print(f"Curriculum: Advancing from 'touch' to 'rally' (avg_touches={avg_touches:.1f})")
+      return 'rally'
+  
+  elif current_stage == 'rally':
+    if avg_rally_diff >= selfplay_config.rally_threshold:
+      print(f"Curriculum: Advancing from 'rally' to 'win' (rally_diff={avg_rally_diff:.1f})")
+      return 'win'
+  
+  return current_stage
+
+
+def add_to_archive(wVec, aVec, fitness, generation):
+  """Add an individual to the opponent archive."""
+  global opponent_archive, selfplay_config
+  
+  if len(opponent_archive) < selfplay_config.max_archive_size:
+    opponent_archive.append((wVec.copy(), aVec.copy(), fitness, generation))
+  else:
+    # Replace worst if new individual is better
+    worst_idx = min(range(len(opponent_archive)), key=lambda i: opponent_archive[i][2])
+    if fitness > opponent_archive[worst_idx][2]:
+      opponent_archive[worst_idx] = (wVec.copy(), aVec.copy(), fitness, generation)
+
+
+# Global storage to keep non-blocking send requests and data alive
+_pending_broadcast_data = []
+_pending_broadcast_requests = []
+
+
+def broadcast_archive():
+  """Broadcast archive to all workers using non-blocking sends.
+  
+  NOTE: We use isend() (non-blocking) because workers are blocked waiting for
+  work on tag=1, not actively receiving tag=100. Blocking send could deadlock.
+  
+  IMPORTANT: We store the data and requests globally to prevent garbage collection
+  before the sends complete. Workers receive these messages asynchronously.
+  """
+  global nWorker, opponent_archive, _pending_broadcast_data, _pending_broadcast_requests
+  nSlave = nWorker - 1
+  
+  verbose = os.environ.get('NEAT_VERBOSE', '0') == '1'
+  if verbose:
+    print(f"[Master] Broadcasting archive (size={len(opponent_archive)}) to {nSlave} workers...", flush=True)
+  
+  # Clear any completed previous broadcasts
+  _pending_broadcast_data = []
+  _pending_broadcast_requests = []
+  
+  # Create a serializable snapshot of the archive
+  archive_snapshot = [(w.copy(), a.copy(), f, g) for w, a, f, g in opponent_archive]
+  
+  # Send to each worker with its own copy of data (to prevent buffer issues)
+  for iWork in range(1, nSlave + 1):
+    # Each worker gets its own copy to ensure buffer validity
+    import copy
+    msg = ('archive_update', copy.deepcopy(archive_snapshot))
+    _pending_broadcast_data.append(msg)  # Keep reference alive
+    
+    req = comm.isend(msg, dest=iWork, tag=100)
+    _pending_broadcast_requests.append(req)  # Keep request alive
+    
+    if verbose:
+      print(f"[Master] Queued archive send to worker {iWork}", flush=True)
+  
+  if verbose:
+    print(f"[Master] Archive broadcast queued (non-blocking)", flush=True)
+
+
+# Global storage for curriculum broadcasts
+_pending_curriculum_data = []
+_pending_curriculum_requests = []
+
+
+def broadcast_curriculum_stage(stage):
+  """Broadcast curriculum stage to all workers using non-blocking sends."""
+  global nWorker, _pending_curriculum_data, _pending_curriculum_requests
+  nSlave = nWorker - 1
+  
+  # Clear previous
+  _pending_curriculum_data = []
+  _pending_curriculum_requests = []
+  
+  # Use non-blocking sends with persistent references
+  for iWork in range(1, nSlave + 1):
+    msg = ('curriculum_update', stage)
+    _pending_curriculum_data.append(msg)
+    req = comm.isend(msg, dest=iWork, tag=101)
+    _pending_curriculum_requests.append(req)
+
+
+def save_archive(fileName):
+  """Save opponent archive to file."""
+  global opponent_archive
+  import pickle
+  
+  archive_path = f'log/{fileName}_archive.pkl'
+  with open(archive_path, 'wb') as f:
+    pickle.dump(opponent_archive, f)
+  print(f"Saved archive with {len(opponent_archive)} opponents to {archive_path}")
+
+
+def load_archive(fileName):
+  """Load opponent archive from file."""
+  global opponent_archive
+  import pickle
+  
+  archive_path = f'log/{fileName}_archive.pkl'
+  if os.path.exists(archive_path):
+    with open(archive_path, 'rb') as f:
+      opponent_archive = pickle.load(f)
+    print(f"Loaded archive with {len(opponent_archive)} opponents from {archive_path}")
+
 
 def gatherData(data,neat,gen,hyp,savePop=False,action_dist=None):
   """Collects run data, saves it to disk, and exports pickled population
@@ -173,9 +418,9 @@ def batchMpiEval(pop: list[Ind], sameSeedForEachIndividual: bool = True, track_a
         # Send track_actions flag
         comm.send(track_actions, dest=(iWork)+1, tag=6)
 
-      else: # message size of 0 is signal to shutdown workers
+      else: # message size of 0 is signal to skip (no work for this worker in batch)
         n_wVec = 0
-        comm.send(n_wVec,  dest=(iWork)+1)
+        comm.send(n_wVec, dest=(iWork)+1, tag=1)  # Must use tag=1 to match worker's recv
       i = i+1 
   
     # Get fitness values back for that batch
@@ -218,6 +463,126 @@ def batchMpiEval(pop: list[Ind], sameSeedForEachIndividual: bool = True, track_a
   
   return reward, None
 
+
+def batchMpiEvalSelfPlay(pop: list[Ind], sameSeedForEachIndividual: bool = True, 
+                         track_actions: bool = False, verbose: bool = False) -> tuple:
+  """
+  Evaluate population with self-play support.
+  
+  Same as batchMpiEval but also collects episode statistics for curriculum learning.
+  
+  Returns:
+    reward - fitness values
+    action_dist - action distribution (if track_actions)
+    pop_stats - aggregated population statistics
+  """
+  global nWorker, hyp, opponent_archive, selfplay_config
+  nSlave = nWorker - 1
+  nJobs = len(pop)
+  nBatch = math.ceil(nJobs / nSlave)
+
+  if sameSeedForEachIndividual is False:
+    seed = np.random.randint(1000, size=nJobs)
+  else:
+    seed = np.random.randint(1000)
+
+  reward = np.empty(nJobs, dtype=np.float64)
+  action_dist_agg = None
+  
+  # Aggregate episode statistics
+  total_touches = 0
+  total_rallies_won = 0
+  total_rallies_lost = 0
+  total_episodes = 0
+  
+  if verbose:
+    print(f"[Master] Starting eval: {nJobs} jobs, {nSlave} workers, {nBatch} batches", flush=True)
+  
+  i = 0
+  for iBatch in range(nBatch):
+    if verbose:
+      print(f"[Master] Sending batch {iBatch+1}/{nBatch} (jobs {i}-{min(i+nSlave-1, nJobs-1)})", flush=True)
+    
+    for iWork in range(nSlave):
+      if i < nJobs:
+        wVec = pop[i].wMat.flatten()
+        n_wVec = np.shape(wVec)[0]
+        aVec = pop[i].aVec.flatten()
+        n_aVec = np.shape(aVec)[0]
+
+        comm.send(n_wVec, dest=(iWork)+1, tag=1)
+        comm.Send(wVec, dest=(iWork)+1, tag=2)
+        comm.send(n_aVec, dest=(iWork)+1, tag=3)
+        comm.Send(aVec, dest=(iWork)+1, tag=4)
+        if sameSeedForEachIndividual is False:
+          comm.send(seed.item(i), dest=(iWork)+1, tag=5)
+        else:
+          comm.send(seed, dest=(iWork)+1, tag=5)
+        comm.send(track_actions, dest=(iWork)+1, tag=6)
+      else:
+        n_wVec = 0
+        comm.send(n_wVec, dest=(iWork)+1, tag=1)  # Fixed: added tag=1 for consistency
+      i = i + 1
+  
+    # Get results back
+    if verbose:
+      print(f"[Master] Waiting for batch {iBatch+1}/{nBatch} results...", flush=True)
+    
+    i -= nSlave
+    for iWork in range(1, nSlave + 1):
+      if i < nJobs:
+        if verbose:
+          print(f"[Master] Waiting for worker {iWork} (job {i})...", flush=True)
+        
+        workResult = np.empty(1, dtype='d')
+        comm.Recv(workResult, source=iWork)
+        reward[i] = workResult[0]
+        
+        if verbose:
+          print(f"[Master] Got result from worker {iWork}: fitness={workResult[0]:.2f}", flush=True)
+        
+        if track_actions:
+          action_dist_shape = comm.recv(source=iWork, tag=7)
+          action_dist = np.empty(action_dist_shape, dtype='d')
+          comm.Recv(action_dist, source=iWork, tag=8)
+          
+          if action_dist_agg is None:
+            action_dist_agg = action_dist.copy()
+          else:
+            action_dist_agg += action_dist
+        
+        # Receive episode statistics
+        ep_stats = comm.recv(source=iWork, tag=9)
+        total_touches += ep_stats.get('ball_touches', 0)
+        total_rallies_won += ep_stats.get('rallies_won', 0)
+        total_rallies_lost += ep_stats.get('rallies_lost', 0)
+        total_episodes += 1
+        
+      i += 1
+  
+  if verbose:
+    print(f"[Master] All batches complete", flush=True)
+  
+  # Normalize action distribution
+  if track_actions and action_dist_agg is not None:
+    if action_dist_agg.ndim == 1:
+      total = np.sum(action_dist_agg)
+      action_dist_agg = action_dist_agg / max(total, 1)
+    else:
+      total = np.sum(action_dist_agg, axis=1, keepdims=True)
+      total[total == 0] = 1
+      action_dist_agg = action_dist_agg / total
+  
+  # Compute population statistics
+  pop_stats = {
+    'avg_touches': total_touches / max(total_episodes, 1),
+    'avg_rallies_won': total_rallies_won / max(total_episodes, 1),
+    'avg_rallies_lost': total_rallies_lost / max(total_episodes, 1),
+  }
+  
+  return reward, action_dist_agg, pop_stats
+
+
 def slave():
   """Evaluation process: evaluates networks sent from master process. 
 
@@ -235,34 +600,100 @@ def slave():
     result - (float)    - fitness value of network
     action_dist - (np_array) - action distribution (if track_actions=True)
   """
-  global hyp  
-  task = GymTask(games[hyp['task']], nReps=hyp['alg_nReps'])
+  global hyp, selfplay_config, opponent_archive
+  
+  # Check if self-play is enabled
+  selfplay_enabled = hyp.get('selfplay_enabled', False)
+  
+  if selfplay_enabled:
+    from domain.task_gym_selfplay import SelfPlayGymTask
+    task = SelfPlayGymTask(
+      games[hyp['task']], 
+      nReps=hyp['alg_nReps'],
+      eval_mode=hyp.get('selfplay_eval_mode', 'mixed'),
+      baseline_weight=hyp.get('selfplay_baseline_weight', 0.6),
+      archive_weight=hyp.get('selfplay_archive_weight', 0.4),
+      n_archive_opponents=hyp.get('selfplay_n_archive_opponents', 3),
+      enable_curriculum=hyp.get('selfplay_enable_curriculum', True),
+    )
+  else:
+    task = GymTask(games[hyp['task']], nReps=hyp['alg_nReps'])
 
+  job_count = 0  # Debug counter
+  verbose = os.environ.get('NEAT_VERBOSE', '0') == '1'
+  
   # Evaluate any weight vectors sent this way
   while True:
-    n_wVec = comm.recv(source=0,  tag=1)# how long is the array that's coming?
+    # Check for archive/curriculum updates (non-blocking)
+    if selfplay_enabled:
+      archive_updates = 0
+      while comm.Iprobe(source=0, tag=100):
+        msg_type, data = comm.recv(source=0, tag=100)
+        if msg_type == 'archive_update':
+          task.load_archive_snapshot(data)
+          archive_updates += 1
+          if verbose:
+            print(f"[Worker {rank}] Received archive update #{archive_updates}, size={len(data)}", flush=True)
+      
+      curriculum_updates = 0
+      while comm.Iprobe(source=0, tag=101):
+        msg_type, data = comm.recv(source=0, tag=101)
+        if msg_type == 'curriculum_update':
+          task.set_curriculum_stage(data)
+          curriculum_updates += 1
+      
+      if curriculum_updates > 0 and verbose:
+        print(f"[Worker {rank}] Processed {curriculum_updates} curriculum update(s), stage: {task.current_stage}", flush=True)
+    
+    n_wVec = comm.recv(source=0, tag=1)
     if n_wVec > 0:
-      wVec = np.empty(n_wVec, dtype='d')# allocate space to receive weights
-      comm.Recv(wVec, source=0,  tag=2) # recieve weights
+      job_count += 1
+      wVec = np.empty(n_wVec, dtype='d')
+      comm.Recv(wVec, source=0, tag=2)
 
-      n_aVec = comm.recv(source=0,tag=3)# how long is the array that's coming?
-      aVec = np.empty(n_aVec, dtype='d')# allocate space to receive activation
-      comm.Recv(aVec, source=0,  tag=4) # recieve it
-      seed = comm.recv(source=0, tag=5) # random seed as int
-      track_actions = comm.recv(source=0, tag=6) # track actions flag
+      n_aVec = comm.recv(source=0, tag=3)
+      aVec = np.empty(n_aVec, dtype='d')
+      comm.Recv(aVec, source=0, tag=4)
+      seed = comm.recv(source=0, tag=5)
+      track_actions = comm.recv(source=0, tag=6)
 
       if track_actions:
-        fitness, action_dist = task.getFitness(wVec, aVec, track_actions=True) # process it
+        if verbose:
+          print(f"[Worker {rank}] Starting job {job_count}, archive_size={len(task.archive)}", flush=True)
+        
+        try:
+          fitness, action_dist = task.getFitness(wVec, aVec, track_actions=True)
+        except Exception as e:
+          print(f"[Worker {rank}] ERROR in getFitness (job {job_count}): {e}", flush=True)
+          import traceback
+          traceback.print_exc()
+          # Send dummy data to avoid deadlock
+          fitness = -999.0
+          action_dist = np.zeros(task.nOutput)
+        
+        if verbose:
+          print(f"[Worker {rank}] Completed job {job_count}, fitness={fitness:.2f}", flush=True)
+        
         result = np.array([fitness])
-        comm.Send(result, dest=0)            # send fitness back
-        # Send action distribution
+        comm.Send(result, dest=0)
         comm.send(action_dist.shape, dest=0, tag=7)
         comm.Send(action_dist, dest=0, tag=8)
+        
+        # Send episode stats for self-play
+        if selfplay_enabled and hasattr(task, 'env') and hasattr(task.env, 'get_episode_stats'):
+          ep_stats = task.env.get_episode_stats()
+        else:
+          ep_stats = {}
+        comm.send(ep_stats, dest=0, tag=9)
       else:
-        result = task.getFitness(wVec, aVec) # process it
-        comm.Send(result, dest=0)            # send it back
+        result = task.getFitness(wVec, aVec)
+        if isinstance(result, tuple):
+          result = np.array([result[0]])
+        else:
+          result = np.array([result])
+        comm.Send(result, dest=0)
 
-    if n_wVec < 0: # End signal recieved
+    if n_wVec < 0:
       print('Worker # ', rank, ' shutting down.')
       break
 
@@ -296,7 +727,6 @@ def mpi_fork(n):
     global nWorker, rank
     nWorker = comm.Get_size()
     rank = comm.Get_rank()
-    #print('assigning the rank and nworkers', nWorker, rank)
     return "child"
 
 
@@ -344,7 +774,3 @@ if __name__ == "__main__":
 
   main(args)                              
   
-
-
-
-
