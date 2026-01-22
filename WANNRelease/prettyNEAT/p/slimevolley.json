@@ -1,9 +1,11 @@
 {
     "_comment": "SlimeVolley with Shaped Rewards (Non-Self-Play)",
     "_comment_curriculum": "Set enable_curriculum to true to use curriculum learning, false for fixed rewards",
+    "_comment_thresholds": "touch_threshold: average touches per episode to advance from 'touch' stage (lower = easier progression)",
     
     "task": "slimevolley_shaped",
     "enable_curriculum": true,
+    "touch_threshold": 10,
     
     "maxGen": 512,
     "popSize": 256,
