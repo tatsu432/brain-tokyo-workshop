@@ -38,6 +38,7 @@ class EvolutionRunner:
         self.neat = Neat(hyp)
         self.render_manager = None
         self.curriculum_stage = None
+        self.previous_curriculum_stage = None  # Track previous stage to detect changes
 
         # Initialize rendering manager if enabled
         self._setup_rendering()
@@ -126,13 +127,18 @@ class EvolutionRunner:
                 )
 
                 # Update curriculum based on population statistics
+                curriculum_stage_changed = False
                 if self.selfplay_config.enable_curriculum:
+                    previous_stage = self.curriculum_stage
                     self.curriculum_stage = update_curriculum(
                         pop_stats,
                         self.curriculum_stage,
                         self.selfplay_config.time_steps_threshold,
                         self.selfplay_config.time_steps_threshold_wins,
                     )
+                    # Check if curriculum stage changed (reset will happen after gather_data)
+                    if previous_stage is not None and self.curriculum_stage != previous_stage:
+                        curriculum_stage_changed = True
                     broadcast_curriculum_stage(self.curriculum_stage, self.n_worker)
 
                 # Add best individual to archive periodically
@@ -149,16 +155,21 @@ class EvolutionRunner:
                 )
 
                 # Update curriculum for non-self-play if enabled
+                curriculum_stage_changed = False
                 enable_curriculum = self.hyp.get("enable_curriculum", False)
                 if enable_curriculum:
                     if self.curriculum_stage is None:
                         self.curriculum_stage = "survival"
+                    previous_stage = self.curriculum_stage
                     self.curriculum_stage = update_curriculum(
                         pop_stats,
                         self.curriculum_stage,
                         self.hyp.get("time_steps_threshold", 750),
                         self.hyp.get("time_steps_threshold_wins", 800),
                     )
+                    # Check if curriculum stage changed (reset will happen after gather_data)
+                    if previous_stage is not None and self.curriculum_stage != previous_stage:
+                        curriculum_stage_changed = True
                     broadcast_curriculum_stage(self.curriculum_stage, self.n_worker)
 
                 # Track curriculum stats for non-self-play
@@ -184,6 +195,15 @@ class EvolutionRunner:
                 shaped_stats=pop_stats,
                 batch_eval_fn=eval_fn,
             )
+
+            # Reset best fitness if curriculum stage changed (after gathering current generation's data)
+            # This ensures the next generation (evaluated with new curriculum) starts fresh
+            if curriculum_stage_changed:
+                if verbose:
+                    logger.info(
+                        f"[Master] Curriculum stage changed: resetting best fitness for new stage '{self.curriculum_stage}'"
+                    )
+                self.data.reset_best_fitness()
 
             # Display with curriculum/self-play info
             self._log_generation(gen)

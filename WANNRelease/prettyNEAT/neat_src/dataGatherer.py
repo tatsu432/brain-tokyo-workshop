@@ -251,6 +251,60 @@ class DataGatherer:
             self.current_shaped_stats = {}
         # ------------------------------------------------------------------------
 
+    def reset_best_fitness(self):
+        """Reset best fitness tracking to current elite.
+        
+        This should be called when the curriculum stage changes, as the fitness
+        landscape changes and previous best fitness values are no longer comparable.
+        
+        The reset prepares the tracking so that the next generation's elite will
+        be treated as a new best, starting fresh tracking for the new curriculum stage.
+        """
+        # Reset best individual tracking to current elite (if any exists)
+        # This ensures the next gatherData call will compare against the current
+        # elite rather than an old best from a different curriculum stage
+        if len(self.elite) > 0:
+            # Reset best list to contain only the current elite
+            # This way, the next gatherData will compare new elite against this one
+            self.best = [copy.deepcopy(self.elite[-1])]
+            
+            # Update the last entry in fit_top to be the current elite's fitness
+            # (this will be the baseline for the new curriculum stage)
+            if len(self.fit_top) > 0:
+                self.fit_top[-1] = self.elite[-1].fitness
+            else:
+                # If fit_top is empty, initialize it with current elite's fitness
+                self.fit_top = np.array([self.elite[-1].fitness])
+            
+            # Reset raw fitness tracking to current elite's raw fitness
+            if len(self.elite_raw_fitness) > 0:
+                elite_raw = self.elite_raw_fitness[-1]
+                # Reset best raw fitness list to contain only current elite's raw fitness
+                if len(self.best_raw_fitness) > 0:
+                    self.best_raw_fitness[-1] = elite_raw
+                else:
+                    self.best_raw_fitness = [elite_raw]
+                self.current_best_raw_fitness = elite_raw
+                
+                # Update the last entry in fit_top_raw to be the current elite's raw fitness
+                if len(self.fit_top_raw) > 0:
+                    self.fit_top_raw[-1] = elite_raw
+                else:
+                    self.fit_top_raw = np.array([elite_raw])
+            else:
+                # If no elite raw fitness yet, reset appropriately
+                if len(self.best_raw_fitness) > 0:
+                    self.best_raw_fitness[-1] = None
+                self.current_best_raw_fitness = None
+                if len(self.fit_top_raw) > 0:
+                    self.fit_top_raw[-1] = 0.0
+        else:
+            # No elite yet - this shouldn't happen in normal flow, but handle gracefully
+            # Clear the best tracking so next generation starts fresh
+            self.best = []
+            self.best_raw_fitness = []
+            self.current_best_raw_fitness = None
+
     def set_display_config(self, **kwargs):
         """Configure which metrics to display.
 
@@ -312,33 +366,34 @@ class DataGatherer:
         output = " | ".join(parts)
 
         # --- Shaped reward component details ---
+        # Disabled by default - not useful for most users
         if cfg.get("show_shaped_details", False) and self.current_shaped_stats:
             shaped_parts = []
             stats = self.current_shaped_stats
-
-            # Ball touches
-            if "avg_touches" in stats:
-                shaped_parts.append("Touch:{:.1f}".format(stats["avg_touches"]))
-
-            # Rallies won/lost
-            if "avg_rallies_won" in stats:
-                shaped_parts.append("RallyW:{:.1f}".format(stats["avg_rallies_won"]))
-            if "avg_rallies_lost" in stats:
-                shaped_parts.append("RallyL:{:.1f}".format(stats["avg_rallies_lost"]))
-
-            # Ball time on opponent side (as percentage of steps)
-            if "avg_ball_time_opponent_side" in stats:
-                ball_opp = stats["avg_ball_time_opponent_side"]
-                shaped_parts.append("BallOpp:{:.0f}".format(ball_opp))
-
-            # Tracking reward (cumulative)
-            if "avg_tracking_reward" in stats:
-                shaped_parts.append("Track:{:.2f}".format(stats["avg_tracking_reward"]))
-
+        
+            # # Ball touches
+            # if "avg_touches" in stats:
+            #     shaped_parts.append("Touch:{:.1f}".format(stats["avg_touches"]))
+        
+            # # Rallies won/lost
+            # if "avg_rallies_won" in stats:
+            #     shaped_parts.append("RallyW:{:.1f}".format(stats["avg_rallies_won"]))
+            # if "avg_rallies_lost" in stats:
+            #     shaped_parts.append("RallyL:{:.1f}".format(stats["avg_rallies_lost"]))
+        
+            # # Ball time on opponent side (as percentage of steps)
+            # if "avg_ball_time_opponent_side" in stats:
+            #     ball_opp = stats["avg_ball_time_opponent_side"]
+            #     shaped_parts.append("BallOpp:{:.0f}".format(ball_opp))
+        
+            # # Tracking reward (cumulative)
+            # if "avg_tracking_reward" in stats:
+            #     shaped_parts.append("Track:{:.2f}".format(stats["avg_tracking_reward"]))
+        
             # Total steps (timesteps)
             if "avg_total_steps" in stats:
                 shaped_parts.append("Steps:{:.0f}".format(stats["avg_total_steps"]))
-
+        
             if shaped_parts:
                 output += " | Shp: " + " ".join(shaped_parts)
 
@@ -358,10 +413,32 @@ class DataGatherer:
             else:
                 # Continuous actions: show binned distribution per output
                 output += " | ActDist:"
-                for i, row in enumerate(self.current_action_dist):
-                    # Format: O0[25%,25%,25%,25%] for each output dimension
-                    pcts = ["{:.0f}%".format(v * 100) for v in row]
-                    output += " O{}[{}]".format(i, ",".join(pcts))
+                n_outputs = len(self.current_action_dist)
+                n_bins = len(self.current_action_dist[0]) if n_outputs > 0 else 0
+                
+                # For 3 outputs (SlimeVolley: forward, jump, back), use meaningful labels
+                if n_outputs == 3 and n_bins == 2:
+                    # Binary decisions: show Off/On percentages
+                    action_labels = ["Forward", "Jump", "Back"]
+                    for i, row in enumerate(self.current_action_dist):
+                        label = action_labels[i] if i < len(action_labels) else f"O{i}"
+                        # Format: Forward[Off:73%,On:27%] for 2 bins
+                        off_pct = row[0] * 100
+                        on_pct = row[1] * 100
+                        output += " {}[Off:{:.0f}%,On:{:.0f}%]".format(label, off_pct, on_pct)
+                elif n_outputs == 3:
+                    # Fallback: 3 outputs but not 2 bins (shouldn't happen, but handle gracefully)
+                    action_labels = ["Forward", "Jump", "Back"]
+                    for i, row in enumerate(self.current_action_dist):
+                        label = action_labels[i] if i < len(action_labels) else f"O{i}"
+                        pcts = ["{:.0f}%".format(v * 100) for v in row]
+                        output += " {}[{}]".format(label, ",".join(pcts))
+                else:
+                    # For other cases, use generic O0, O1, etc.
+                    for i, row in enumerate(self.current_action_dist):
+                        # Format: O0[25%,25%,25%,25%] for each output dimension
+                        pcts = ["{:.0f}%".format(v * 100) for v in row]
+                        output += " O{}[{}]".format(i, ",".join(pcts))
 
         return output
 

@@ -218,6 +218,9 @@ def _render_episode(
     env = SlimeVolleyEnv()
     logger.debug("Environment created")
 
+    # Track timesteps manually since we're using raw environment
+    env_timestep = 0
+
     # Clean weights
     wVec = np.copy(wVec)
     wVec[np.isnan(wVec)] = 0
@@ -245,6 +248,7 @@ def _render_episode(
 
     # Use the shared action processor for consistency
     from domain.slimevolley_actions import SlimeVolleyActionProcessor
+
     action_processor = SlimeVolleyActionProcessor(clip_actions=True)
 
     def process_action(action):
@@ -252,6 +256,9 @@ def _render_episode(
         return action_processor.process(action)
 
     logger.debug("Starting episode loop...")
+
+    # Track if rendering is available (disable if display error occurs)
+    rendering_enabled = True
 
     try:
         for step in range(max_steps):
@@ -279,18 +286,57 @@ def _render_episode(
             else:
                 state, reward, done, info = env.step(binary_action)
 
+            env_timestep += 1
             total_reward += reward
 
-            # Render - call without mode parameter (render_mode should be set at init)
-            env.render()
+            # Render - gracefully handle display unavailability
+            if rendering_enabled:
+                try:
+                    env.render()
+                except (IndexError, RuntimeError) as e:
+                    # Display not available (headless environment, no X11, etc.)
+                    if "list index out of range" in str(e) or "get_screens" in str(e):
+                        rendering_enabled = False
+                        logger.warning(
+                            f"Display not available, disabling rendering for this episode: {e}"
+                        )
+                    else:
+                        # Re-raise if it's a different error
+                        raise
 
             # Control frame rate
             elapsed = time.time() - start_time
             if elapsed < frame_delay:
                 time.sleep(frame_delay - elapsed)
 
+            # Check if we should continue or stop
+            # Episode can end due to: (1) done=True from env (lives lost), (2) max_steps reached
+            should_stop = False
+            stop_reason = None
+
             if done:
-                logger.debug(f"Episode done at step {step}")
+                # Environment says episode is done (likely someone lost all lives)
+                should_stop = True
+                # Try to get info about why it ended
+                lives_left = None
+                if hasattr(env, "lives"):
+                    lives_left = env.lives
+                elif "lives" in info:
+                    lives_left = info.get("lives")
+
+                if lives_left is not None:
+                    stop_reason = f"Lives lost (lives={lives_left})"
+                else:
+                    stop_reason = "Environment returned done=True (unknown reason)"
+            elif env_timestep >= max_steps:
+                # Max steps reached
+                should_stop = True
+                stop_reason = f"Max steps reached ({max_steps})"
+
+            if should_stop:
+                logger.debug(
+                    f"Rendered episode ended at step {env_timestep}: {stop_reason}"
+                )
                 break
 
     except KeyboardInterrupt:

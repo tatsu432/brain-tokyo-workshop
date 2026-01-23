@@ -205,9 +205,16 @@ class SelfPlayGymTask:
         }
 
         # Action distribution tracking
-        self.n_action_bins = 4
-        self.action_bin_edges = np.array([-np.inf, -0.5, 0.0, 0.5, np.inf])
+        # For 3 outputs (forward, jump, back), use 2 bins (binary: off/on)
+        # For other cases, use 4 bins
         self.is_discrete_action = game.actionSelect in ["prob", "hard"]
+        if not self.is_discrete_action and self.nOutput == 3:
+            # Binary decisions: <=0 (off) and >0 (on)
+            self.n_action_bins = 2
+            self.action_bin_edges = np.array([-np.inf, 0.0, np.inf])
+        else:
+            self.n_action_bins = 4
+            self.action_bin_edges = np.array([-np.inf, -0.5, 0.0, 0.5, np.inf])
 
     def set_curriculum_stage(self, stage: str):
         """Manually set curriculum stage."""
