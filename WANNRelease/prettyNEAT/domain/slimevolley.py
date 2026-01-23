@@ -5,7 +5,7 @@ Based on SlimeVolleyGym: https://github.com/hardmaru/slimevolleygym
 A simple multi-agent volleyball game environment.
 
 Environment specs:
-- Observation: 12-dim vector [agent_x, agent_y, agent_vx, agent_vy, 
+- Observation: 12-dim vector [agent_x, agent_y, agent_vx, agent_vy,
                               ball_x, ball_y, ball_vx, ball_vy,
                               opponent_x, opponent_y, opponent_vx, opponent_vy]
 - Action: MultiBinary(3) - [forward, backward, jump]

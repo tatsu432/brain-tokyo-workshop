@@ -1,8 +1,10 @@
-import os
-import numpy as np
 import copy
-from .ann import exportNet
+import os
+
+import numpy as np
+
 from ._speciate import Species
+from .ann import exportNet
 from .ind import Ind
 
 
@@ -92,7 +94,7 @@ class DataGatherer:
         # Shaped reward component tracking (population averages per generation)
         self.shaped_stats_history = []  # List of dicts, one per generation
         self.current_shaped_stats = None  # Current generation's shaped stats
-        
+
         # Shaped component field names for display
         self.shaped_stat_labels = {
             "avg_touches": "Touch",
@@ -311,26 +313,26 @@ class DataGatherer:
         if cfg.get("show_shaped_details", False) and self.current_shaped_stats:
             shaped_parts = []
             stats = self.current_shaped_stats
-            
+
             # Ball touches
             if "avg_touches" in stats:
                 shaped_parts.append("Touch:{:.1f}".format(stats["avg_touches"]))
-            
+
             # Rallies won/lost
             if "avg_rallies_won" in stats:
                 shaped_parts.append("RallyW:{:.1f}".format(stats["avg_rallies_won"]))
             if "avg_rallies_lost" in stats:
                 shaped_parts.append("RallyL:{:.1f}".format(stats["avg_rallies_lost"]))
-            
+
             # Ball time on opponent side (as percentage of steps)
             if "avg_ball_time_opponent_side" in stats:
                 ball_opp = stats["avg_ball_time_opponent_side"]
                 shaped_parts.append("BallOpp:{:.0f}".format(ball_opp))
-            
+
             # Tracking reward (cumulative)
             if "avg_tracking_reward" in stats:
                 shaped_parts.append("Track:{:.2f}".format(stats["avg_tracking_reward"]))
-            
+
             if shaped_parts:
                 output += " | Shp: " + " ".join(shaped_parts)
 

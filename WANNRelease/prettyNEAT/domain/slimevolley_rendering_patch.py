@@ -5,9 +5,10 @@ This module provides a complete pygame-based implementation of the gym rendering
 to make slimevolleygym's native rendering work properly.
 """
 
+import math
+
 import numpy as np
 import pygame
-import math
 
 
 class Transform:
@@ -350,8 +351,9 @@ def apply_rendering_patch():
     Monkeypatch slimevolleygym to use our pygame-based rendering module
     instead of the missing gym.envs.classic_control.rendering module.
     """
-    import slimevolleygym.slimevolley as sv
     from types import ModuleType
+
+    import slimevolleygym.slimevolley as sv
 
     # Create a fake rendering module with all the necessary classes and functions
     rendering_module = ModuleType("rendering")

@@ -1,25 +1,29 @@
-import numpy as np
 import warnings
+
 import gymnasium as gym
-from matplotlib.pyplot import imread
 
 # Suppress gym step API deprecation warning
-warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*Initializing environment in old step API.*")
+warnings.filterwarnings(
+    "ignore",
+    category=DeprecationWarning,
+    message=".*Initializing environment in old step API.*",
+)
 # Suppress render mode deprecation warning
-warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*The argument mode in render method is deprecated.*")
+warnings.filterwarnings(
+    "ignore",
+    category=DeprecationWarning,
+    message=".*The argument mode in render method is deprecated.*",
+)
 
 
 def make_env(env_name, seed=-1, render_mode=False):
     # -- Bullet Environments ------------------------------------------- -- #
     if "Bullet" in env_name:
-        import pybullet as p  # pip install pybullet
-        import pybullet_envs
-        import pybullet_envs.bullet.kukaGymEnv as kukaGymEnv
+        pass
 
     # -- Bipedal Walker ------------------------------------------------ -- #
     if env_name.startswith("BipedalWalker"):
         if env_name.startswith("BipedalWalkerHardcore"):
-            import Box2D
             from domain.bipedal_walker import BipedalWalkerHardcore
 
             env = BipedalWalkerHardcore()

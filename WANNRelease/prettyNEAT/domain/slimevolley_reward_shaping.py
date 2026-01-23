@@ -11,14 +11,15 @@ Key Design Principles:
 4. No gradient reliance: Works with evolutionary selection
 """
 
+from typing import Any, Dict, Optional
+
 import numpy as np
-from typing import Optional, Dict, Any
 
 
 class SlimeVolleyRewardShaper:
     """
     Computes dense reward shaping for NEAT/evolutionary training.
-    
+
     Decomposed Fitness Components:
     1. Ball Touches: +touch_bonus when agent hits the ball
     2. Rallies Won: +rally_bonus for each point scored
@@ -42,7 +43,7 @@ class SlimeVolleyRewardShaper:
     ):
         """
         Initialize reward shaper with configuration.
-        
+
         Args:
             touch_bonus: Reward per ball touch
             rally_bonus: Reward per rally/point won
@@ -84,10 +85,12 @@ class SlimeVolleyRewardShaper:
         self.touch_cooldown = 0
         self.prev_obs = None
 
-    def _detect_ball_touch(self, obs: np.ndarray, prev_obs: Optional[np.ndarray]) -> bool:
+    def _detect_ball_touch(
+        self, obs: np.ndarray, prev_obs: Optional[np.ndarray]
+    ) -> bool:
         """
         Detect if agent touched the ball using velocity change detection.
-        
+
         Returns True if:
         1. Ball was on our side (ball_x < 0)
         2. Ball velocity changed significantly (indicating contact)
@@ -143,7 +146,9 @@ class SlimeVolleyRewardShaper:
             return False
 
         # Additional check: ball should have moved
-        ball_moved = (abs(ball_x - prev_ball_x) > 0.01) or (abs(ball_y - prev_ball_y) > 0.01)
+        ball_moved = (abs(ball_x - prev_ball_x) > 0.01) or (
+            abs(ball_y - prev_ball_y) > 0.01
+        )
         if not ball_moved:
             return False
 
@@ -156,19 +161,19 @@ class SlimeVolleyRewardShaper:
     ) -> float:
         """
         Compute decomposed shaping reward for NEAT fitness.
-        
+
         Observation format (all values divided by scaleFactor=10.0):
         [agent_x, agent_y, agent_vx, agent_vy,
          ball_x, ball_y, ball_vx, ball_vy,
          opp_x, opp_y, opp_vx, opp_vy]
-        
+
         Key: ball_x < 0 means ball is on OUR side
-        
+
         Args:
             obs: Current observation (12-dim)
             game_reward: Raw game reward from environment
             prev_obs: Previous observation (for touch detection)
-            
+
         Returns:
             shaped_reward: Additional reward from shaping
         """
@@ -253,7 +258,7 @@ class SlimeVolleyRewardShaper:
     def compute_final_bonus(self) -> float:
         """
         Compute final episode bonus based on game outcome.
-        
+
         Returns:
             final_bonus: Weighted bonus for net game score
         """

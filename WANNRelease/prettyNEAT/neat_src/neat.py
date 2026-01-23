@@ -1,13 +1,13 @@
-import numpy as np
-import math
 import copy
 import json
+import logging
 
+import numpy as np
 from domain import *  # Task environments
 from utils import *
+
 from .nsga_sort import nsga_sort
 
-import logging
 logger = logging.getLogger(__name__)
 
 
@@ -39,8 +39,8 @@ class Neat:
         self.gen = 0
 
     """ Subfunctions """
+    from ._speciate import Species, assignOffspring, assignSpecies, compatDist, speciate
     from ._variation import evolvePop, recombine
-    from ._speciate import Species, speciate, compatDist, assignSpecies, assignOffspring
 
     def ask(self):
         """Returns newly evolved population"""
@@ -82,9 +82,9 @@ class Neat:
         # Node types: (1=input, 2=output 3=hidden 4=bias)
         node[1, 0] = 4  # Bias
         node[1, 1 : p["ann_nInput"] + 1] = 1  # Input Nodes
-        node[
-            1, (p["ann_nInput"] + 1) : (p["ann_nInput"] + p["ann_nOutput"] + 1)
-        ] = 2  # Output Nodes
+        node[1, (p["ann_nInput"] + 1) : (p["ann_nInput"] + p["ann_nOutput"] + 1)] = (
+            2  # Output Nodes
+        )
 
         # Node Activations - FIXED to use correct output activations
         node[2, :] = p[

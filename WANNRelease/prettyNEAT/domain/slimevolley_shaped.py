@@ -26,10 +26,11 @@ Refactored to use clean architecture with shared components.
 """
 
 import numpy as np
+
 from domain.slimevolley_base import BaseSlimeVolleyEnv
 from domain.slimevolley_reward_shaping import (
-    SlimeVolleyRewardShaper,
     CURRICULUM_CONFIGS,
+    SlimeVolleyRewardShaper,
 )
 
 

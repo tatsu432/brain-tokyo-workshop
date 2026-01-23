@@ -1,10 +1,9 @@
 import glob
-from matplotlib import pyplot as plt
-import networkx as nx
-import numpy as np
 import pickle
 import warnings
-from matplotlib import cm
+
+import numpy as np
+from matplotlib import pyplot as plt
 
 # Custom libraties
 from .lplot import *

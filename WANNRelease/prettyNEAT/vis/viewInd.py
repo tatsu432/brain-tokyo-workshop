@@ -1,7 +1,8 @@
-from matplotlib import pyplot as plt
+import sys
+
 import networkx as nx
 import numpy as np
-import sys
+from matplotlib import pyplot as plt
 
 sys.path.append("../domain/")
 sys.path.append("vis")

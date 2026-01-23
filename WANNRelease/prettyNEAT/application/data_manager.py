@@ -1,8 +1,8 @@
 """Data gathering and best individual management."""
+
 import numpy as np
 from neat_src.dataGatherer import DataGatherer
 from neat_src.neat import Neat
-from neat_src.ind import Ind
 
 
 def gather_data(

@@ -7,9 +7,9 @@ run rendering in a separate process.
 
 Usage in training:
     from domain.render_selfplay import RenderManager
-    
+
     render_manager = RenderManager(render_interval=10)
-    
+
     # In training loop:
     if render_manager.should_render(generation):
         render_manager.render_best(best_wVec, best_aVec, nInput, nOutput, actSelect)
@@ -21,17 +21,18 @@ Features:
     - Process management: Won't spawn multiple renders simultaneously
 """
 
-import os
-import sys
-import time
 import json
-import tempfile
-import traceback
-import subprocess
 import logging
+import os
+import subprocess
+import sys
+import tempfile
+import time
+import traceback
 import warnings
+from typing import List, Optional, Tuple
+
 import numpy as np
-from typing import Optional, List, Tuple
 
 # Suppress Gym/NumPy 2.0 compatibility warnings
 # These warnings appear when slimevolleygym imports the old gym package
@@ -45,17 +46,25 @@ warnings.filterwarnings("ignore", message=".*migration guide.*")
 class FilteredStderr:
     """
     Custom stderr wrapper that filters out Gym deprecation warnings.
-    
+
     The old gym package prints warnings directly to stderr, bypassing Python's
     warnings system. This class intercepts those writes and filters them out.
     """
+
     def __init__(self, original_stderr):
         self.original_stderr = original_stderr
         # Copy attributes from original stderr
-        for attr in ['mode', 'encoding', 'errors', 'newlines', 'line_buffering', 'write_through']:
+        for attr in [
+            "mode",
+            "encoding",
+            "errors",
+            "newlines",
+            "line_buffering",
+            "write_through",
+        ]:
             if hasattr(original_stderr, attr):
                 setattr(self, attr, getattr(original_stderr, attr))
-    
+
     def write(self, text):
         # Filter out gym deprecation warnings
         if "Gym has been unmaintained" in text:
@@ -70,13 +79,13 @@ class FilteredStderr:
             return len(text)
         # Write everything else to original stderr
         return self.original_stderr.write(text)
-    
+
     def flush(self):
         return self.original_stderr.flush()
-    
+
     def close(self):
         return self.original_stderr.close()
-    
+
     def __getattr__(self, name):
         # Delegate all other attributes to original stderr
         return getattr(self.original_stderr, name)
@@ -86,7 +95,7 @@ class FilteredStderr:
 logger = logging.getLogger(__name__)
 if not logger.handlers:
     handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter('[%(name)s] %(message)s'))
+    handler.setFormatter(logging.Formatter("[%(name)s] %(message)s"))
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)  # Default to INFO, so DEBUG messages are hidden
 
@@ -413,10 +422,7 @@ class RenderManager:
                 # Process finished, clean up
                 self._current_process = None
                 if self._temp_file and os.path.exists(self._temp_file):
-                    try:
-                        os.remove(self._temp_file)
-                    except:
-                        pass
+                    os.remove(self._temp_file)
                     self._temp_file = None
 
     def should_render(self, generation: int) -> bool:
@@ -639,9 +645,7 @@ def _run_from_file(filepath: str):
     if data["opponent_wVec"] is not None:
         opponent_data = (data["opponent_wVec"], data["opponent_aVec"])
 
-    logger.debug(
-        f"Starting render for generation {data['generation']}"
-    )
+    logger.debug(f"Starting render for generation {data['generation']}")
 
     _render_episode(
         data["wVec"],
@@ -743,7 +747,7 @@ if __name__ == "__main__":
 
                 # Simulate training continuing
                 for i in range(10):
-                    print(f"  Main process: iteration {i+1}/10...")
+                    print(f"  Main process: iteration {i + 1}/10...")
                     time.sleep(0.5)
                     # Check if render process is still alive
                     if not manager.is_rendering():

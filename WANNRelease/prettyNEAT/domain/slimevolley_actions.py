@@ -7,14 +7,15 @@ between different SlimeVolley environment variants.
 Clean Architecture: Separates action processing concerns from environment logic.
 """
 
-import numpy as np
 from typing import Union
+
+import numpy as np
 
 
 class SlimeVolleyActionProcessor:
     """
     Converts NEAT/WANN continuous outputs to SlimeVolley binary actions.
-    
+
     Supports multiple action modes:
     1. Discrete mode: 6 discrete actions (0-5) mapped to action combinations
     2. Continuous mode: 2D continuous values [horizontal, jump]
@@ -40,7 +41,7 @@ class SlimeVolleyActionProcessor:
     def __init__(self, clip_actions: bool = True):
         """
         Initialize action processor.
-        
+
         Args:
             clip_actions: If True, clip continuous actions to [-1, 1] range.
                          This prevents unbounded linear outputs from saturating
@@ -51,15 +52,15 @@ class SlimeVolleyActionProcessor:
     def process(self, action: Union[int, float, np.ndarray]) -> np.ndarray:
         """
         Convert NEAT output to binary actions [forward, backward, jump].
-        
+
         Supports multiple input formats:
         - Discrete index (int): 0-5 for discrete action selection
         - Continuous array (2D): [horizontal, jump] with thresholds
         - Continuous scalar (1D): Single value mapped to discrete zones
-        
+
         Args:
             action: Action from NEAT network (various formats supported)
-            
+
         Returns:
             binary_action: numpy array of shape (3,) with binary values
                           [forward, backward, jump] where each is 0 or 1

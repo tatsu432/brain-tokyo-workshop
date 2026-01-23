@@ -1,12 +1,9 @@
 {
   "_comment": "SlimeVolley with Self-Play and Curriculum Learning",
-  
   "task": "slimevolley_selfplay",
-  
   "maxGen": 512,
   "popSize": 256,
   "alg_nReps": 5,
-
   "alg_speciate": "neat",
   "alg_probMoo": 0.95,
   "alg_act": 0,
@@ -30,7 +27,6 @@
   "spec_weightCoef": 0.5,
   "save_mod": 16,
   "bestReps": 50,
-  
   "_comment_self_play": "Self-play configuration",
   "selfplay_enabled": true,
   "selfplay_eval_mode": "mixed",
@@ -38,7 +34,6 @@
   "selfplay_archive_weight": 0.4,
   "selfplay_n_archive_opponents": 3,
   "selfplay_archive_add_freq": 5,
-  
   "_comment_curriculum": "Curriculum learning settings",
   "_comment_curriculum_note": "Set enable_curriculum=true to use curriculum (touch→rally→win), false for fixed rewards",
   "_comment_curriculum_note2": "For self-play, you can also use selfplay_enable_curriculum (overridden by enable_curriculum if set)",
@@ -46,14 +41,12 @@
   "selfplay_enable_curriculum": true,
   "selfplay_touch_threshold": 5.0,
   "selfplay_rally_threshold": 0.0,
-  
   "_comment_rendering": "Training visualization settings",
   "render_enabled": true,
   "render_interval": 10,
   "render_fps": 50,
   "render_max_steps": 3000,
   "render_use_archive_opponent": true,
-  
   "_comment_display": "Display configuration - toggle which metrics to show",
   "_comment_display_note": "show_shaped_details: Show individual shaped reward components (Touch, RallyW, RallyL, BallOpp, Track)",
   "display_config": {
@@ -66,6 +59,5 @@
     "show_actions": true,
     "show_shaped_details": true
   },
-  
   "_comment_neat": "NEAT algorithm parameters"
 }

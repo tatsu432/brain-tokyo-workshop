@@ -1,17 +1,18 @@
 """Main evolution loop orchestration."""
-import logging
-import numpy as np
-from neat_src.neat import Neat
-from neat_src.dataGatherer import DataGatherer
-from neat_src.ind import Ind
 
-from domain.selfplay.config import SelfPlayConfig
+import logging
+
+import numpy as np
+from domain.curriculum import broadcast_curriculum_stage, update_curriculum
 from domain.selfplay.archive import OpponentArchive
-from domain.curriculum import update_curriculum, broadcast_curriculum_stage
+from domain.selfplay.config import SelfPlayConfig
 from infrastructure.mpi_communication import (
     batch_mpi_eval,
     batch_mpi_eval_selfplay,
 )
+from neat_src.dataGatherer import DataGatherer
+from neat_src.neat import Neat
+
 from application.data_manager import gather_data
 
 logger = logging.getLogger(__name__)
@@ -167,8 +168,12 @@ class EvolutionRunner:
             self.neat.tell(reward)  # Send fitness to NEAT
 
             # Determine which eval function to use for check_best
-            eval_fn = batch_mpi_eval_selfplay if self.selfplay_config.enabled else batch_mpi_eval
-            
+            eval_fn = (
+                batch_mpi_eval_selfplay
+                if self.selfplay_config.enabled
+                else batch_mpi_eval
+            )
+
             self.data = gather_data(
                 self.data,
                 self.neat,
@@ -184,7 +189,9 @@ class EvolutionRunner:
             self._log_generation(gen)
 
             # Trigger non-blocking rendering of best individual
-            if self.render_manager is not None and self.render_manager.should_render(gen):
+            if self.render_manager is not None and self.render_manager.should_render(
+                gen
+            ):
                 self._render_best(pop, reward, task_config, gen)
 
         # Clean up and data gathering at run end
@@ -210,17 +217,13 @@ class EvolutionRunner:
                     f"[Master] Adding to archive: wVec shape={w_vec_to_add.shape}, aVec shape={a_vec_to_add.shape}",
                 )
 
-            self.opponent_archive.add(
-                w_vec_to_add, a_vec_to_add, best_fitness, gen
-            )
+            self.opponent_archive.add(w_vec_to_add, a_vec_to_add, best_fitness, gen)
             # Broadcast updated archive to workers
             self.opponent_archive.broadcast(self.n_worker)
 
     def _track_selfplay_stats(self, pop_stats, gen):
         """Track self-play statistics."""
-        self.data.selfplay_stats["avg_touches"].append(
-            pop_stats.get("avg_touches", 0)
-        )
+        self.data.selfplay_stats["avg_touches"].append(pop_stats.get("avg_touches", 0))
         self.data.selfplay_stats["avg_rallies_won"].append(
             pop_stats.get("avg_rallies_won", 0)
         )
@@ -228,7 +231,9 @@ class EvolutionRunner:
             pop_stats.get("avg_rallies_lost", 0)
         )
         self.data.selfplay_stats["curriculum_stage"].append(self.curriculum_stage)
-        self.data.selfplay_stats["archive_size"].append(len(self.opponent_archive.archive))
+        self.data.selfplay_stats["archive_size"].append(
+            len(self.opponent_archive.archive)
+        )
 
     def _track_curriculum_stats(self, pop_stats):
         """Track curriculum statistics for non-self-play."""
@@ -280,7 +285,9 @@ class EvolutionRunner:
             nOutput=task_config.output_size,
             actSelect=task_config.actionSelect,
             generation=gen,
-            use_random_archive_opponent=self.hyp.get("render_use_archive_opponent", True)
+            use_random_archive_opponent=self.hyp.get(
+                "render_use_archive_opponent", True
+            )
             if self.selfplay_config.enabled
             else False,
         )
@@ -288,7 +295,9 @@ class EvolutionRunner:
     def _finalize(self):
         """Finalize the evolution run."""
         gen = self.hyp["maxGen"] - 1
-        eval_fn = batch_mpi_eval_selfplay if self.selfplay_config.enabled else batch_mpi_eval
+        eval_fn = (
+            batch_mpi_eval_selfplay if self.selfplay_config.enabled else batch_mpi_eval
+        )
         self.data = gather_data(
             self.data, self.neat, gen, self.hyp, save_pop=True, batch_eval_fn=eval_fn
         )

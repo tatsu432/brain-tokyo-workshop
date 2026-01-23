@@ -7,21 +7,28 @@ Follows clean architecture by separating environment wrapping from domain-specif
 All SlimeVolley wrappers should inherit from this base class to ensure consistency.
 """
 
-import logging
-import warnings
-import sys
-import os
 import contextlib
-import numpy as np
+import logging
+import os
+import sys
+import warnings
+from typing import Optional
+
 import gymnasium as gym
+import numpy as np
 from gymnasium import spaces
 from gymnasium.utils.seeding import np_random
-from typing import Optional
 
 # Suppress gym step API deprecation warning (from old gym package used by slimevolleygym)
 # Must be set before importing old gym to catch warnings during import
-warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*Initializing environment in old step API.*")
-warnings.filterwarnings("ignore", category=DeprecationWarning, module="gym.wrappers.step_api_compatibility")
+warnings.filterwarnings(
+    "ignore",
+    category=DeprecationWarning,
+    message=".*Initializing environment in old step API.*",
+)
+warnings.filterwarnings(
+    "ignore", category=DeprecationWarning, module="gym.wrappers.step_api_compatibility"
+)
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="gym")
 # Suppress Gym/NumPy 2.0 compatibility warnings
 warnings.filterwarnings("ignore", message=".*Gym has been unmaintained.*")
@@ -51,8 +58,8 @@ try:
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         with suppress_stderr():
-            import slimevolleygym
             import gym as old_gym  # slimevolleygym uses old gym API
+            import slimevolleygym
 
     # Apply rendering patch to fix gym rendering compatibility issues
     try:
@@ -75,14 +82,14 @@ except ImportError:
 class BaseSlimeVolleyEnv(gym.Env):
     """
     Base wrapper for SlimeVolley-v0 environment.
-    
+
     This class handles common functionality:
     - Environment initialization and wrapping
     - Action processing via shared action processor
     - Observation space definition
     - Basic step/reset/render/close methods
     - Timestep tracking
-    
+
     Subclasses should override step() and reset() to add domain-specific logic.
     """
 
@@ -96,7 +103,7 @@ class BaseSlimeVolleyEnv(gym.Env):
     ):
         """
         Initialize base SlimeVolley environment.
-        
+
         Args:
             env_id: Gym environment ID (default: "SlimeVolley-v0")
             max_steps: Maximum steps per episode
@@ -153,12 +160,12 @@ class BaseSlimeVolleyEnv(gym.Env):
     def _process_action(self, action):
         """
         Convert NEAT's continuous action output to SlimeVolley's binary actions.
-        
+
         Delegates to shared action processor to eliminate duplication.
-        
+
         Args:
             action: Action from NEAT network (various formats supported)
-            
+
         Returns:
             binary_action: numpy array of shape (3,) with binary values
                           [forward, backward, jump]
@@ -168,14 +175,14 @@ class BaseSlimeVolleyEnv(gym.Env):
     def step(self, action, otherAction=None):
         """
         Execute one timestep in the environment.
-        
+
         Base implementation handles action processing and timestep tracking.
         Subclasses should override to add reward shaping, statistics, etc.
-        
+
         Args:
             action: Action from NEAT (continuous values)
             otherAction: Optional action for opponent (for self-play)
-            
+
         Returns:
             observation: 12-dim state vector
             reward: Reward from environment
@@ -204,9 +211,9 @@ class BaseSlimeVolleyEnv(gym.Env):
     def reset(self):
         """
         Reset the environment to initial state.
-        
+
         Subclasses should override to reset additional state (reward shapers, etc.).
-        
+
         Returns:
             observation: Initial 12-dim state vector
         """
@@ -217,11 +224,11 @@ class BaseSlimeVolleyEnv(gym.Env):
     def render(self, mode="human", close=False):
         """
         Render the environment using slimevolleygym's native rendering.
-        
+
         Args:
             mode: Render mode ('human' or 'rgb_array') - deprecated, kept for compatibility
             close: Whether to close the rendering
-            
+
         Returns:
             None or rgb_array depending on mode
         """
@@ -236,8 +243,11 @@ class BaseSlimeVolleyEnv(gym.Env):
         # but suppress the deprecation warning since this is for old gym compatibility
         try:
             import warnings
+
             with warnings.catch_warnings():
-                warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*render.*mode.*")
+                warnings.filterwarnings(
+                    "ignore", category=DeprecationWarning, message=".*render.*mode.*"
+                )
                 return self.env.render(mode=mode)
         except Exception as e:
             if not self._render_warning_shown:

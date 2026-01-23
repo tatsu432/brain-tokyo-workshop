@@ -1,12 +1,13 @@
 """MPI communication for parallel evaluation."""
+
 import math
 import os
-import numpy as np
-from typing import Tuple, Optional, Dict, List
-from mpi4py import MPI
+from typing import Dict, List, Optional, Tuple
 
-from neat_src.ind import Ind
+import numpy as np
 from core.setup import suppress_stderr
+from mpi4py import MPI
+from neat_src.ind import Ind
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -214,7 +215,7 @@ def batch_mpi_eval_selfplay(
     for i_batch in range(n_batch):
         if verbose:
             print(
-                f"[Master] Sending batch {i_batch+1}/{n_batch} (jobs {i}-{min(i+n_slave-1, n_jobs-1)})",
+                f"[Master] Sending batch {i_batch + 1}/{n_batch} (jobs {i}-{min(i + n_slave - 1, n_jobs - 1)})",
                 flush=True,
             )
 
@@ -244,7 +245,8 @@ def batch_mpi_eval_selfplay(
         # Get results back
         if verbose:
             print(
-                f"[Master] Waiting for batch {i_batch+1}/{n_batch} results...", flush=True
+                f"[Master] Waiting for batch {i_batch + 1}/{n_batch} results...",
+                flush=True,
             )
 
         i -= n_slave
@@ -280,7 +282,9 @@ def batch_mpi_eval_selfplay(
                 total_touches += ep_stats.get("ball_touches", 0)
                 total_rallies_won += ep_stats.get("rallies_won", 0)
                 total_rallies_lost += ep_stats.get("rallies_lost", 0)
-                total_ball_time_opponent_side += ep_stats.get("ball_time_opponent_side", 0)
+                total_ball_time_opponent_side += ep_stats.get(
+                    "ball_time_opponent_side", 0
+                )
                 total_tracking_reward += ep_stats.get("tracking_reward", 0.0)
                 total_episodes += 1
 
@@ -292,7 +296,7 @@ def batch_mpi_eval_selfplay(
             i += 1
 
     if verbose:
-        print(f"[Master] All batches complete", flush=True)
+        print("[Master] All batches complete", flush=True)
 
     # Normalize action distribution
     if track_actions and action_dist_agg is not None:
@@ -355,7 +359,7 @@ def run_worker(hyp: dict):
                 )
                 if verbose:
                     print(
-                        f"  [Worker] Curriculum ENABLED: Using SlimeVolley-Shaped-Curriculum-v0",
+                        "  [Worker] Curriculum ENABLED: Using SlimeVolley-Shaped-Curriculum-v0",
                         flush=True,
                     )
             # else: already using non-curriculum version
@@ -365,7 +369,7 @@ def run_worker(hyp: dict):
                 game_config = game_config._replace(env_name="SlimeVolley-Shaped-v0")
                 if verbose:
                     print(
-                        f"  [Worker] Curriculum DISABLED: Using SlimeVolley-Shaped-v0",
+                        "  [Worker] Curriculum DISABLED: Using SlimeVolley-Shaped-v0",
                         flush=True,
                     )
 
@@ -567,8 +571,8 @@ def mpi_fork(n: int):
     Returns "parent" for original parent, "child" for MPI children
     (from https://github.com/garymcintire/mpi_util/)
     """
-    import sys
     import subprocess
+    import sys
 
     if n <= 1:
         return "child"

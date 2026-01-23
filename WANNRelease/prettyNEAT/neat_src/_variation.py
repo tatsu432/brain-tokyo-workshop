@@ -1,10 +1,10 @@
-import numpy as np
 import itertools
-from .ind import Ind
+
+import numpy as np
 from utils import *
 
-
 from ._speciate import Species
+from .ind import Ind
 
 
 def evolvePop(self) -> None:

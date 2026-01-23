@@ -1,10 +1,11 @@
 import random
-import numpy as np
-import sys
 import time
-from domain.make_env import make_env
+
+import numpy as np
 from neat_src import *
+
 from domain.config import Game
+from domain.make_env import make_env
 
 
 class GymTask:

@@ -1,5 +1,5 @@
 import numpy as np
-import copy
+
 from .ann import getLayer, getNodeOrder
 
 
