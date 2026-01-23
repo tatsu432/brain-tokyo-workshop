@@ -113,16 +113,16 @@ def batch_mpi_eval(
                     else:
                         action_dist_agg += action_dist
 
-                    # Receive episode statistics (always sent by worker if available)1
-                    ep_stats = comm.recv(source=i_work, tag=9)
-                    total_touches += ep_stats.get("ball_touches", 0)
-                    total_rallies_won += ep_stats.get("rallies_won", 0)
-                    total_rallies_lost += ep_stats.get("rallies_lost", 0)
-                    total_ball_time_opponent_side += ep_stats.get(
-                        "ball_time_opponent_side", 0
-                    )
-                    total_tracking_reward += ep_stats.get("tracking_reward", 0.0)
-                    total_episodes += 1
+                # Receive episode statistics (always sent by worker)
+                ep_stats = comm.recv(source=i_work, tag=9)
+                total_touches += ep_stats.get("ball_touches", 0)
+                total_rallies_won += ep_stats.get("rallies_won", 0)
+                total_rallies_lost += ep_stats.get("rallies_lost", 0)
+                total_ball_time_opponent_side += ep_stats.get(
+                    "ball_time_opponent_side", 0
+                )
+                total_tracking_reward += ep_stats.get("tracking_reward", 0.0)
+                total_episodes += 1
 
                 # Receive raw fitness
                 raw_result = np.empty(1, dtype="d")

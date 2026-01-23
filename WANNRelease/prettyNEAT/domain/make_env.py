@@ -80,7 +80,7 @@ def make_env(env_name: str, seed: int = -1, render_mode: bool = False) -> gym.En
         from domain.slimevolley_shaped import SlimeVolleyShapedEnv
 
         env = SlimeVolleyShapedEnv(
-            enable_curriculum=True, initial_curriculum_stage="touch"
+            enable_curriculum=True, initial_curriculum_stage="survival"
         )
 
     elif env_name == "SlimeVolley-Curriculum-v0":
@@ -88,7 +88,7 @@ def make_env(env_name: str, seed: int = -1, render_mode: bool = False) -> gym.En
         from domain.slimevolley_shaped import SlimeVolleyShapedEnv
 
         env = SlimeVolleyShapedEnv(
-            enable_curriculum=True, initial_curriculum_stage="touch"
+            enable_curriculum=True, initial_curriculum_stage="survival"
         )
 
     # -- Slime Volleyball ---------------------------------------------- -- #

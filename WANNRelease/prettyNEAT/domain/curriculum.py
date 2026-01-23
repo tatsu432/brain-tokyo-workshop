@@ -22,34 +22,34 @@ def update_curriculum(
 
     Args:
         pop_stats: Dictionary with 'avg_touches', 'avg_rallies_won', 'avg_rallies_lost'
-        current_stage: Current curriculum stage ('touch', 'rally', 'win', or None)
-        touch_threshold: Average touches needed to advance from 'touch' to 'rally'
-        rally_threshold: Average rally difference needed to advance from 'rally' to 'win'
+        current_stage: Current curriculum stage ('survival', 'mixed', 'wins', or None)
+        touch_threshold: Average touches needed to advance from 'survival' to 'mixed'
+        rally_threshold: Average rally difference needed to advance from 'mixed' to 'wins'
 
     Returns:
         Updated curriculum stage
     """
     if current_stage is None:
-        return "touch"
+        return "survival"
 
     avg_touches = pop_stats.get("avg_touches", 0)
     avg_rally_diff = pop_stats.get("avg_rallies_won", 0) - pop_stats.get(
         "avg_rallies_lost", 0
     )
 
-    if current_stage == "touch":
+    if current_stage == "survival":
         if avg_touches >= touch_threshold:
             logger.info(
-                f"Curriculum: Advancing from 'touch' to 'rally' (avg_touches={avg_touches:.1f})"
+                f"Curriculum: Advancing from 'survival' to 'mixed' (avg_touches={avg_touches:.1f})"
             )
-            return "rally"
+            return "mixed"
 
-    elif current_stage == "rally":
+    elif current_stage == "mixed":
         if avg_rally_diff >= rally_threshold:
             logger.info(
-                f"Curriculum: Advancing from 'rally' to 'win' (rally_diff={avg_rally_diff:.1f})"
+                f"Curriculum: Advancing from 'mixed' to 'wins' (rally_diff={avg_rally_diff:.1f})"
             )
-            return "win"
+            return "wins"
 
     return current_stage
 

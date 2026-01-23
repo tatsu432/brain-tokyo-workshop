@@ -196,7 +196,7 @@ class SelfPlayGymTask:
         self.enable_curriculum = enable_curriculum
         self.touch_threshold = touch_threshold
         self.rally_threshold = rally_threshold
-        self.current_stage = "touch"  # 'touch', 'rally', 'win'
+        self.current_stage = "survival"  # 'survival', 'mixed', 'wins'
 
         # Statistics for curriculum advancement
         self.generation_stats = {
@@ -212,7 +212,7 @@ class SelfPlayGymTask:
 
     def set_curriculum_stage(self, stage: str):
         """Manually set curriculum stage."""
-        if stage not in ["touch", "rally", "win"]:
+        if stage not in ["survival", "mixed", "wins"]:
             raise ValueError(f"Unknown stage: {stage}")
 
         self.current_stage = stage
@@ -233,15 +233,15 @@ class SelfPlayGymTask:
 
         self.generation_stats.update(population_stats)
 
-        if self.current_stage == "touch":
+        if self.current_stage == "survival":
             if population_stats.get("avg_touches", 0) >= self.touch_threshold:
-                print("Curriculum: Advancing from 'touch' to 'rally' stage")
-                self.set_curriculum_stage("rally")
+                print("Curriculum: Advancing from 'survival' to 'mixed' stage")
+                self.set_curriculum_stage("mixed")
 
-        elif self.current_stage == "rally":
+        elif self.current_stage == "mixed":
             if population_stats.get("avg_rally_diff", 0) >= self.rally_threshold:
-                print("Curriculum: Advancing from 'rally' to 'win' stage")
-                self.set_curriculum_stage("win")
+                print("Curriculum: Advancing from 'mixed' to 'wins' stage")
+                self.set_curriculum_stage("wins")
 
     def add_to_archive(
         self, wVec: np.ndarray, aVec: np.ndarray, fitness: float, generation: int

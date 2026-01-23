@@ -69,7 +69,7 @@ class EvolutionRunner:
         """Initialize curriculum tracking."""
         enable_curriculum = self.hyp.get("enable_curriculum", False)
         if enable_curriculum:
-            self.curriculum_stage = "touch"
+            self.curriculum_stage = "survival"
 
         if self.selfplay_config.enabled:
             if not hasattr(self.data, "selfplay_stats"):
@@ -152,7 +152,7 @@ class EvolutionRunner:
                 enable_curriculum = self.hyp.get("enable_curriculum", False)
                 if enable_curriculum:
                     if self.curriculum_stage is None:
-                        self.curriculum_stage = "touch"
+                        self.curriculum_stage = "survival"
                     self.curriculum_stage = update_curriculum(
                         pop_stats,
                         self.curriculum_stage,
@@ -249,7 +249,7 @@ class EvolutionRunner:
         if self.curriculum_stage is not None:
             self.data.curriculum_stats["curriculum_stage"].append(self.curriculum_stage)
         else:
-            self.data.curriculum_stats["curriculum_stage"].append("touch")
+            self.data.curriculum_stats["curriculum_stage"].append("survival")
 
     def _log_generation(self, gen):
         """Log generation information."""
