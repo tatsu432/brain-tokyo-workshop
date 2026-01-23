@@ -4,16 +4,17 @@ import sys
 import time
 from domain.make_env import make_env
 from neat_src import *
+from domain.config import Game
 
 
 class GymTask:
     """Problem domain to be solved by neural network. Uses OpenAI Gym patterns."""
 
-    def __init__(self, game, paramOnly=False, nReps=1):
+    def __init__(self, game: Game, paramOnly: bool = False, nReps: int = 1):
         """Initializes task environment
 
         Args:
-          game - (string) - dict key of task to be solved (see domain/config.py)
+          game - (Game) - task to be solved (see domain/config.py)
 
         Optional:
           paramOnly - (bool)  - only load parameters instead of launching task?
