@@ -74,12 +74,12 @@ def make_env(env_name: str, seed: int = -1, render_mode: bool = False) -> gym.En
     elif env_name == "SlimeVolley-Shaped-v0":
         from domain.slimevolley_shaped import SlimeVolleyShapedEnv
 
-        return SlimeVolleyShapedEnv(enable_curriculum=False)
+        env = SlimeVolleyShapedEnv(enable_curriculum=False)
 
     elif env_name == "SlimeVolley-Shaped-Curriculum-v0":
         from domain.slimevolley_shaped import SlimeVolleyShapedEnv
 
-        return SlimeVolleyShapedEnv(
+        env = SlimeVolleyShapedEnv(
             enable_curriculum=True, initial_curriculum_stage="touch"
         )
 
@@ -87,7 +87,7 @@ def make_env(env_name: str, seed: int = -1, render_mode: bool = False) -> gym.En
         # Backward compatibility alias
         from domain.slimevolley_shaped import SlimeVolleyShapedEnv
 
-        return SlimeVolleyShapedEnv(
+        env = SlimeVolleyShapedEnv(
             enable_curriculum=True, initial_curriculum_stage="touch"
         )
 
@@ -121,4 +121,8 @@ def make_env(env_name: str, seed: int = -1, render_mode: bool = False) -> gym.En
 
     if seed >= 0:
         env.seed(seed)
+
+    logger.debug(f"Action space: {env.action_space}")
+    logger.debug(f"Observation space: {env.observation_space}")
+
     return env

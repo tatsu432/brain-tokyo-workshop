@@ -71,7 +71,7 @@ def bestIntSplit(ratio, total):
     ratio = np.asarray(ratio).flatten()
 
     # Handle poorly defined ratio
-    if sum(ratio) is not 1:
+    if sum(ratio) != 1:
         ratio = ratio / sum(ratio)
 
     # Get share in real and integer values
@@ -101,7 +101,7 @@ def quickINTersect(A, B):
       print(quickINTersect(B,C))
       print(quickINTersect(B,D))
     """
-    if (len(A) is 0) or (len(B) is 0):
+    if (len(A) == 0) or (len(B) == 0):
         return [], []
     P = np.zeros((1 + max(max(A), max(B))), dtype=bool)
     P[A] = True

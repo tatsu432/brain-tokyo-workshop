@@ -124,7 +124,14 @@ class GymTask:
 
         return fitness
 
-    def _testInd(self, wVec, aVec, view=False, seed=-1, track_actions=False):
+    def _testInd(
+        self,
+        wVec: np.ndarray,
+        aVec: np.ndarray,
+        view: bool = False,
+        seed: int = -1,
+        track_actions: bool = False,
+    ) -> tuple[float, np.ndarray, float] | float:
         """Evaluate individual on task
         Args:
           wVec    - (np_array) - weight matrix as a flattened vector

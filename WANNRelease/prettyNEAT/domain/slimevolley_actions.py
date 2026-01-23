@@ -38,6 +38,7 @@ class SlimeVolleyActionProcessor:
         [1, 0, 1],  # 5: right + jump
     ]
 
+
     def __init__(self, clip_actions: bool = True):
         """
         Initialize action processor.
