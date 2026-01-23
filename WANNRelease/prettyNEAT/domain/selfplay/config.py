@@ -30,7 +30,9 @@ class SelfPlayConfig:
     time_steps_threshold: float = (
         750  # Avg steps per episode to advance from 'survival' to 'mixed' stage
     )
-    rally_threshold: float = 100  # Avg rally diff to advance from 'rally' stage
+    time_steps_threshold_wins: float = (
+        800  # Avg steps per episode to advance from 'mixed' to 'wins' stage
+    )
 
     @classmethod
     def from_hyperparameters(cls, hyp: dict) -> "SelfPlayConfig":
@@ -44,5 +46,5 @@ class SelfPlayConfig:
         config.archive_add_frequency = hyp.get("selfplay_archive_add_freq", 5)
         config.enable_curriculum = hyp.get("selfplay_enable_curriculum", True)
         config.time_steps_threshold = hyp.get("time_steps_threshold", 750)
-        config.rally_threshold = hyp.get("rally_threshold", 100)
+        config.time_steps_threshold_wins = hyp.get("time_steps_threshold_wins", 800)
         return config

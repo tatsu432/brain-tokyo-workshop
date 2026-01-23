@@ -4,6 +4,12 @@ __pycache__/
 **/__pycache__/
 *.pyc
 
-*.DS_Store
-*.python-version
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Python
+.python-version
+
+# local / machine-specific scripts
 fix_sdl2_conflict.sh

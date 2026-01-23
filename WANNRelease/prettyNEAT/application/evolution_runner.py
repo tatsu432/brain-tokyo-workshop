@@ -131,7 +131,7 @@ class EvolutionRunner:
                         pop_stats,
                         self.curriculum_stage,
                         self.selfplay_config.time_steps_threshold,
-                        self.selfplay_config.rally_threshold,
+                        self.selfplay_config.time_steps_threshold_wins,
                     )
                     broadcast_curriculum_stage(self.curriculum_stage, self.n_worker)
 
@@ -157,7 +157,7 @@ class EvolutionRunner:
                         pop_stats,
                         self.curriculum_stage,
                         self.hyp.get("time_steps_threshold", 750),
-                        self.hyp.get("rally_threshold", 100),
+                        self.hyp.get("time_steps_threshold_wins", 800),
                     )
                     broadcast_curriculum_stage(self.curriculum_stage, self.n_worker)
 
