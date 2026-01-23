@@ -2,7 +2,7 @@ import random
 import time
 
 import numpy as np
-from neat_src import *
+from neat_src import act, selectAct
 
 from domain.config import Game
 from domain.make_env import make_env
@@ -170,7 +170,6 @@ class GymTask:
             action_dist = self._update_action_dist(action_dist, action)
 
         wVec[wVec != 0]
-        predName = str(np.mean(wVec[wVec != 0]))
         state, reward, done, info = self.env.step(action)
 
         # Extract raw game reward if available (for shaped environments)

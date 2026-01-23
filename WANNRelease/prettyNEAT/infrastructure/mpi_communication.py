@@ -113,8 +113,7 @@ def batch_mpi_eval(
                     else:
                         action_dist_agg += action_dist
 
-                # Receive episode statistics (always sent by worker if available)
-                try:
+                    # Receive episode statistics (always sent by worker if available)1
                     ep_stats = comm.recv(source=i_work, tag=9)
                     total_touches += ep_stats.get("ball_touches", 0)
                     total_rallies_won += ep_stats.get("rallies_won", 0)
@@ -124,9 +123,6 @@ def batch_mpi_eval(
                     )
                     total_tracking_reward += ep_stats.get("tracking_reward", 0.0)
                     total_episodes += 1
-                except:
-                    # Worker may not send stats if environment doesn't support it
-                    pass
 
                 # Receive raw fitness
                 raw_result = np.empty(1, dtype="d")
@@ -448,7 +444,7 @@ def run_worker(hyp: dict):
             n_a_vec = comm.recv(source=0, tag=3)
             a_vec = np.empty(n_a_vec, dtype="d")
             comm.Recv(a_vec, source=0, tag=4)
-            seed = comm.recv(source=0, tag=5)
+            _ = comm.recv(source=0, tag=5)
             track_actions = comm.recv(source=0, tag=6)
 
             if track_actions:
