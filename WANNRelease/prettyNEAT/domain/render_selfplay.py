@@ -243,27 +243,13 @@ def _render_episode(
     frame_delay = 1.0 / render_fps
     step = 0
 
-    # Action mapping for discrete actions
-    DISCRETE_ACTION_MAP = [
-        [0, 1, 0],  # 0: left + no jump
-        [0, 0, 0],  # 1: stay + no jump
-        [1, 0, 0],  # 2: right + no jump
-        [0, 1, 1],  # 3: left + jump
-        [0, 0, 1],  # 4: stay + jump
-        [1, 0, 1],  # 5: right + jump
-    ]
+    # Use the shared action processor for consistency
+    from domain.slimevolley_actions import SlimeVolleyActionProcessor
+    action_processor = SlimeVolleyActionProcessor(clip_actions=True)
 
     def process_action(action):
-        """Convert network output to binary action."""
-        if isinstance(action, (int, np.integer)):
-            action_idx = int(action) % 6
-            return DISCRETE_ACTION_MAP[action_idx]
-        action = np.array(action).flatten()
-        if len(action) == 6:
-            action_idx = np.argmax(action)
-            return DISCRETE_ACTION_MAP[action_idx]
-        # Default
-        return [0, 0, 0]
+        """Convert network output to binary action using shared processor."""
+        return action_processor.process(action)
 
     logger.debug("Starting episode loop...")
 
@@ -373,7 +359,7 @@ class RenderManager:
             if render_manager.should_render(gen):
                 render_manager.render_best(
                     best_wVec, best_aVec,
-                    nInput=12, nOutput=6,
+                    nInput=12, nOutput=3,
                     actSelect='prob',
                     generation=gen
                 )
@@ -585,7 +571,7 @@ def render_individual(
     wVec: np.ndarray,
     aVec: np.ndarray,
     nInput: int = 12,
-    nOutput: int = 6,
+    nOutput: int = 3,
     actSelect: str = "prob",
     opponent_data: Optional[Tuple[np.ndarray, np.ndarray]] = None,
     generation: int = 0,
@@ -600,7 +586,7 @@ def render_individual(
         wVec: Weight vector
         aVec: Activation vector
         nInput: Number of inputs (default 12 for SlimeVolley)
-        nOutput: Number of outputs (default 6 for discrete actions)
+        nOutput: Number of outputs (default 3 for continuous actions: [forward, jump, back])
         actSelect: Action selection method
         opponent_data: Optional (wVec, aVec) for self-play opponent
         generation: Generation number for display
@@ -699,7 +685,7 @@ if __name__ == "__main__":
 
         # Create random network weights
         nInput = 12
-        nOutput = 6
+        nOutput = 3
         nNodes = nInput + nOutput + 10  # Some hidden nodes
 
         wVec = np.random.randn(nNodes * nNodes) * 0.5

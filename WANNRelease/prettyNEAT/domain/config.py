@@ -186,26 +186,24 @@ games["swingup"] = cartpole_swingup
 # -- Slime Volleyball ---------------------------------------------------- -- #
 
 # > Multi-agent volleyball game
-# V5 DISCRETE ACTIONS: Use 6 discrete outputs with probabilistic selection
-#   - 6 outputs representing all action combinations:
-#     [left+no_jump, stay+no_jump, right+no_jump, left+jump, stay+jump, right+jump]
-#   - 'prob' action selection: softmax → probabilistic sampling (good for exploration)
-#   - LINEAR activation for outputs (softmax handles normalization)
-#   - This avoids the threshold/saturation problems of continuous outputs
+# V6 CONTINUOUS ACTIONS: Use 3 continuous outputs with threshold-based selection
+#   - 3 outputs: [forward, jump, back]
+#   - Threshold-based action selection: each output > threshold activates that action
+#   - LINEAR activation for outputs
 slimevolley = Game(
     # env_name='SlimeVolley-v0' # Standard sparse rewards
     env_name="SlimeVolley-Shaped-v0",  # Dense reward shaping (easier to learn)
-    actionSelect="prob",  # probabilistic selection from softmax (enables exploration)
+    actionSelect="all",  # return all outputs for threshold-based processing
     input_size=12,
-    output_size=6,  # 6 discrete actions: (left/stay/right) x (no_jump/jump)
+    output_size=3,  # 3 continuous outputs: [forward, jump, back]
     time_factor=0,
     layers=[15, 10],  # INCREASED from [8, 8] for more network capacity
     i_act=np.full(12, 1),
     h_act=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-    o_act=np.full(6, 1),  # LINEAR outputs - softmax handles normalization
+    o_act=np.full(3, 1),  # LINEAR outputs
     weightCap=2.0,
     noise_bias=0.0,
-    output_noise=[False] * 6,
+    output_noise=[False] * 3,
     max_episode_length=3000,
     in_out_labels=[
         "agent_x",
@@ -220,12 +218,9 @@ slimevolley = Game(
         "opponent_y",
         "opponent_vx",
         "opponent_vy",
-        "left_no_jump",
-        "stay_no_jump",
-        "right_no_jump",
-        "left_jump",
-        "stay_jump",
-        "right_jump",
+        "forward",
+        "jump",
+        "back",
     ],
 )
 games["slimevolley"] = slimevolley

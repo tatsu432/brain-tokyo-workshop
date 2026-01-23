@@ -191,7 +191,8 @@ if __name__ == "__main__":
     total_reward = 0
 
     for _ in range(1000):
-        action = np.random.randint(0, 6)  # Random discrete action
+        # Random action: 3 outputs [forward, jump, back] with random values
+        action = np.random.randn(3)  # Random continuous action
         obs, reward, done, info = env.step(action)
         total_reward += reward
         if done:

@@ -103,29 +103,10 @@ def testSlimeVolleyRaw(task, wVec, aVec, view=False, nRep=1, seed=-1):
             annOut = act(wVec, aVec, task.nInput, task.nOutput, state)
             action = selectAct(annOut, task.actSelect)
 
-            # Process action for SlimeVolley (convert discrete to binary)
-            if isinstance(action, (int, np.integer)):
-                DISCRETE_ACTION_MAP = [
-                    [0, 1, 0],
-                    [0, 0, 0],
-                    [1, 0, 0],
-                    [0, 1, 1],
-                    [0, 0, 1],
-                    [1, 0, 1],
-                ]
-                binary_action = DISCRETE_ACTION_MAP[int(action) % 6]
-            elif hasattr(action, "__len__") and len(action) == 6:
-                DISCRETE_ACTION_MAP = [
-                    [0, 1, 0],
-                    [0, 0, 0],
-                    [1, 0, 0],
-                    [0, 1, 1],
-                    [0, 0, 1],
-                    [1, 0, 1],
-                ]
-                binary_action = DISCRETE_ACTION_MAP[np.argmax(action)]
-            else:
-                binary_action = action
+            # Process action for SlimeVolley (convert to binary)
+            from domain.slimevolley_actions import SlimeVolleyActionProcessor
+            processor = SlimeVolleyActionProcessor(clip_actions=True)
+            binary_action = processor.process(action)
 
             # Step environment - opponent uses built-in baseline policy (otherAction=None)
             state, reward, done, info = test_env.step(binary_action)
