@@ -3,9 +3,13 @@ import json
 import logging
 
 import numpy as np
-from domain import *  # Task environments
-from utils import *
+from domain.config import games
+from domain.task_gym import GymTask
+from utils import rankArray
 
+# from domain import *  # Task environments
+# from utils import *
+from .ind import Ind
 from .nsga_sort import nsga_sort
 
 logger = logging.getLogger(__name__)
@@ -95,7 +99,6 @@ class Neat:
         # This is critical for tasks that need non-linear outputs (e.g., tanh for SlimeVolley)
         if "ann_actOutput" in p:
             out_start = p["ann_nInput"] + 1
-            out_end = out_start + p["ann_nOutput"]
             for i, act in enumerate(p["ann_actOutput"]):
                 node[2, out_start + i] = act
 
@@ -197,8 +200,8 @@ def updateHyp(hyp, pFileName=None):
 
     FIXED: Now stores output activations separately.
     """
-    if pFileName != None:
-        logger.debug("\t*** Running with hyperparameters: ", pFileName, "\t***")
+    if pFileName is not None:
+        logger.debug(f"\t*** Running with hyperparameters: {pFileName} \t***")
         with open(pFileName) as data_file:
             update = json.load(data_file)
         hyp.update(update)

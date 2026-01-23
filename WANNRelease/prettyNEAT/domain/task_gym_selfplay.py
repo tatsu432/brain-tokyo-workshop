@@ -20,7 +20,7 @@ Self-Play Strategy:
 
 Usage:
     from domain.task_gym_selfplay import SelfPlayGymTask
-    
+
     # In worker:
     task = SelfPlayGymTask(game_config, nReps=3)
     task.set_opponent_archive(archived_individuals)
@@ -28,11 +28,12 @@ Usage:
 """
 
 import random
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
-import copy
-from typing import List, Optional, Tuple, Dict, Any
-from domain.make_env import make_env
 from neat_src import act, selectAct
+
+from domain.make_env import make_env
 
 
 class OpponentPolicy:
@@ -234,12 +235,12 @@ class SelfPlayGymTask:
 
         if self.current_stage == "touch":
             if population_stats.get("avg_touches", 0) >= self.touch_threshold:
-                print(f"Curriculum: Advancing from 'touch' to 'rally' stage")
+                print("Curriculum: Advancing from 'touch' to 'rally' stage")
                 self.set_curriculum_stage("rally")
 
         elif self.current_stage == "rally":
             if population_stats.get("avg_rally_diff", 0) >= self.rally_threshold:
-                print(f"Curriculum: Advancing from 'rally' to 'win' stage")
+                print("Curriculum: Advancing from 'rally' to 'win' stage")
                 self.set_curriculum_stage("win")
 
     def add_to_archive(
@@ -396,7 +397,7 @@ class SelfPlayGymTask:
         for i in range(baseline_reps):
             if debug:
                 print(
-                    f"  [getFitness] Starting baseline episode {i+1}/{baseline_reps}",
+                    f"  [getFitness] Starting baseline episode {i + 1}/{baseline_reps}",
                     flush=True,
                 )
 
@@ -411,7 +412,7 @@ class SelfPlayGymTask:
 
             if debug:
                 print(
-                    f"  [getFitness] Completed baseline episode {i+1}/{baseline_reps}",
+                    f"  [getFitness] Completed baseline episode {i + 1}/{baseline_reps}",
                     flush=True,
                 )
 
@@ -438,7 +439,7 @@ class SelfPlayGymTask:
             for i, opponent in enumerate(archive_opponents):
                 if debug:
                     print(
-                        f"  [getFitness] Starting archive episode {i+1}/{len(archive_opponents)}",
+                        f"  [getFitness] Starting archive episode {i + 1}/{len(archive_opponents)}",
                         flush=True,
                     )
 
@@ -453,7 +454,7 @@ class SelfPlayGymTask:
 
                 if debug:
                     print(
-                        f"  [getFitness] Completed archive episode {i+1}/{len(archive_opponents)}",
+                        f"  [getFitness] Completed archive episode {i + 1}/{len(archive_opponents)}",
                         flush=True,
                     )
 
