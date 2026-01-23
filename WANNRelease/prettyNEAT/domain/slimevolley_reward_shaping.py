@@ -147,7 +147,7 @@ class SlimeVolleyRewardShaper:
 CURRICULUM_CONFIGS = {
     "survival": {
         "survival_scale": 0.01,  # INCREASED from 0.01 for better signal-to-noise ratio
-        "curriculum_weight": 1.0,  # 100% survival, 0% wins
+        "curriculum_weight": 0.8,  # 80% survival, 20% wins
     },
     "mixed": {
         "survival_scale": 0.01,  # INCREASED from 0.01 for better signal-to-noise ratio

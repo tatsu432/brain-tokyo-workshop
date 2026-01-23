@@ -475,7 +475,14 @@ def run_worker(hyp: dict):
                     # Send dummy data to avoid deadlock
                     fitness = -999.0
                     raw_fitness = -999.0
-                    action_dist = np.zeros(task.nOutput)
+                    # Create action_dist with correct shape based on action type
+                    # This must match the shape used in normal execution
+                    if hasattr(task, "is_discrete_action") and task.is_discrete_action:
+                        action_dist = np.zeros(task.nOutput)
+                    else:
+                        # Continuous actions: shape is (nOutput, n_action_bins)
+                        n_bins = getattr(task, "n_action_bins", 4)
+                        action_dist = np.zeros((task.nOutput, n_bins))
 
                 if verbose:
                     print(

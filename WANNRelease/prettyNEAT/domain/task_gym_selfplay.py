@@ -675,6 +675,12 @@ class SelfPlayGymTask:
         episode_stats = info.get("episode_stats", {})
 
         if track_actions:
+            # Ensure action_dist is properly shaped even if no actions were tracked
+            if action_dist is None:
+                if self.is_discrete_action:
+                    action_dist = np.zeros(self.nOutput)
+                else:
+                    action_dist = np.zeros((self.nOutput, self.n_action_bins))
             return totalReward, action_dist, episode_stats, totalRawReward
         return totalReward, episode_stats, totalRawReward
 

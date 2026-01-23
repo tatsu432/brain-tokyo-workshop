@@ -116,13 +116,58 @@ class BaseSlimeVolleyEnv(gym.Env):
             )
 
         # Create the base SlimeVolley environment
+        # Try to directly instantiate from slimevolleygym to avoid wrapper issues
         # slimevolleygym uses old gym API, not gymnasium
         # Disable env checker to avoid numpy 2.x compatibility issues
         # Suppress stderr to hide gym deprecation warnings (gym prints directly to stderr)
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", category=DeprecationWarning)
             with suppress_stderr():
-                self.env = old_gym.make(env_id, disable_env_checker=True)
+                # Try to directly import and instantiate SlimeVolleyEnv from slimevolleygym
+                # This avoids any wrapper issues from gym.make()
+                try:
+                    from slimevolleygym.slimevolley import SlimeVolleyEnv as SlimeVolleyBaseEnv
+                    # Direct instantiation avoids wrapper issues
+                    self.env = SlimeVolleyBaseEnv()
+                    logger.debug("Created slimevolleygym environment directly")
+                except (ImportError, AttributeError):
+                    # Fall back to gym.make() if direct import fails
+                    self.env = old_gym.make(env_id, disable_env_checker=True)
+                    logger.debug("Created environment via gym.make()")
+        
+        # Unwrap environment to get to the actual slimevolleygym environment
+        # This is needed because gymnasium may wrap it with OrderEnforcing which only accepts one argument
+        # We need the underlying environment that supports two-argument step() for self-play
+        original_env = self.env
+        unwrapped_env = self.env
+        
+        # Try to get unwrapped environment
+        if hasattr(self.env, 'unwrapped'):
+            unwrapped_env = self.env.unwrapped
+        elif hasattr(self.env, 'env'):
+            # Common wrapper pattern: wrapper.env is the wrapped environment
+            unwrapped_env = self.env.env
+            # Keep unwrapping if there are multiple layers
+            while hasattr(unwrapped_env, 'env') and unwrapped_env.env is not unwrapped_env:
+                unwrapped_env = unwrapped_env.env
+        
+        # Verify the unwrapped environment supports two-argument step
+        import inspect
+        try:
+            sig = inspect.signature(unwrapped_env.step)
+            # Check if step accepts at least 2 arguments (self + action + optional otherAction)
+            # slimevolleygym's step signature should be: step(self, action, otherAction=None)
+            if len(sig.parameters) >= 2:
+                self.env = unwrapped_env
+                logger.debug(f"Unwrapped environment to access underlying slimevolleygym environment")
+            else:
+                logger.warning(
+                    f"Unwrapped environment's step() only accepts {len(sig.parameters)} arguments. "
+                    f"Self-play may not work correctly. Environment type: {type(unwrapped_env)}"
+                )
+        except Exception as e:
+            logger.warning(f"Could not inspect step signature: {e}. Using original environment.")
+            self.env = original_env
 
         # Environment properties
         self.max_steps = max_steps
@@ -195,7 +240,24 @@ class BaseSlimeVolleyEnv(gym.Env):
         # Handle opponent action if provided
         if otherAction is not None:
             other_binary = self._process_action(otherAction)
-            obs, reward, done, info = self.env.step(binary_action, other_binary)
+            # slimevolleygym's step() supports two arguments: step(action, otherAction)
+            # The unwrapped environment should support this
+            try:
+                obs, reward, done, info = self.env.step(binary_action, other_binary)
+            except TypeError as e:
+                # If step() doesn't accept two arguments, try with just one
+                # This should not happen if unwrapping worked, but handle gracefully
+                if "takes 2 positional arguments but 3 were given" in str(e):
+                    logger.error(
+                        f"Environment step() doesn't support two arguments. "
+                        f"Environment type: {type(self.env)}, "
+                        f"Has 'unwrapped': {hasattr(self.env, 'unwrapped')}, "
+                        f"Has 'env': {hasattr(self.env, 'env')}"
+                    )
+                    # Fall back to single-argument step (opponent will use default policy)
+                    obs, reward, done, info = self.env.step(binary_action)
+                else:
+                    raise
         else:
             obs, reward, done, info = self.env.step(binary_action)
 
