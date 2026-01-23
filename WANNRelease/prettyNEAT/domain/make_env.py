@@ -1,6 +1,9 @@
+import logging
 import warnings
 
 import gymnasium as gym
+
+logger = logging.getLogger(__name__)
 
 # Suppress gym step API deprecation warning
 warnings.filterwarnings(
@@ -16,7 +19,7 @@ warnings.filterwarnings(
 )
 
 
-def make_env(env_name, seed=-1, render_mode=False):
+def make_env(env_name: str, seed: int = -1, render_mode: bool = False) -> gym.Env:
     # -- Bullet Environments ------------------------------------------- -- #
     if "Bullet" in env_name:
         pass
@@ -118,5 +121,4 @@ def make_env(env_name, seed=-1, render_mode=False):
 
     if seed >= 0:
         env.seed(seed)
-
     return env
