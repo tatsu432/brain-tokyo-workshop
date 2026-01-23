@@ -1,4 +1,5 @@
 """Self-play configuration."""
+
 from dataclasses import dataclass
 
 
@@ -10,7 +11,7 @@ class SelfPlayConfig:
     enabled: bool = False
 
     # Evaluation mode: 'baseline', 'archive', 'mixed'
-    eval_mode: str = "mixed"
+    eval_mode: str = "survival"
 
     # Weight for baseline vs archive evaluation
     baseline_weight: float = 0.6
@@ -34,7 +35,7 @@ class SelfPlayConfig:
         """Create config from hyperparameters dictionary."""
         config = cls()
         config.enabled = hyp.get("selfplay_enabled", False)
-        config.eval_mode = hyp.get("selfplay_eval_mode", "mixed")
+        config.eval_mode = hyp.get("selfplay_eval_mode", "survival")
         config.baseline_weight = hyp.get("selfplay_baseline_weight", 0.6)
         config.archive_weight = hyp.get("selfplay_archive_weight", 0.4)
         config.n_archive_opponents = hyp.get("selfplay_n_archive_opponents", 3)

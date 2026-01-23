@@ -46,7 +46,7 @@ class SlimeVolleyShapedEnv(BaseSlimeVolleyEnv):
     def __init__(
         self,
         # Simplified shaping parameters
-        survival_scale: float = 0.01,  # Scale factor for survival reward
+        survival_scale: float = 0.01,  # Scale factor for survival reward (INCREASED from 0.01)
         curriculum_weight: float = 1.0,  # Weight for survival vs wins (1.0 = all survival, 0.0 = all wins)
         # Curriculum support
         enable_curriculum: bool = False,  # Enable curriculum learning (allows stage switching)
@@ -110,9 +110,7 @@ class SlimeVolleyShapedEnv(BaseSlimeVolleyEnv):
                 self.reward_shaper.episode_stats["total_steps"]
                 * self.reward_shaper.survival_scale
             )
-            info["win_reward"] = float(
-                self.reward_shaper.episode_stats["rallies_won"]
-            )
+            info["win_reward"] = float(self.reward_shaper.episode_stats["rallies_won"])
             return obs, final_reward, done, info
 
         # During episode, return 0 reward (all reward computed at end)

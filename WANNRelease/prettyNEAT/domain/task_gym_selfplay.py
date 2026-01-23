@@ -139,7 +139,7 @@ class SelfPlayGymTask:
         paramOnly: bool = False,
         nReps: int = 1,
         # Self-play configuration
-        eval_mode: str = "mixed",
+        eval_mode: str = "survival",
         baseline_weight: float = 0.6,  # Weight for baseline eval
         archive_weight: float = 0.4,  # Weight for archive eval
         n_archive_opponents: int = 3,  # Number of archive opponents per eval
@@ -722,7 +722,7 @@ def create_selfplay_task(game, nReps=3, **kwargs) -> SelfPlayGymTask:
     return SelfPlayGymTask(
         game,
         nReps=nReps,
-        eval_mode="mixed",
+        eval_mode="survival",
         baseline_weight=0.6,
         archive_weight=0.4,
         n_archive_opponents=3,

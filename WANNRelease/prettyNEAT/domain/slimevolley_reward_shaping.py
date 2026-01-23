@@ -32,7 +32,7 @@ class SlimeVolleyRewardShaper:
 
     def __init__(
         self,
-        survival_scale: float = 0.01,
+        survival_scale: float = 0.05,  # INCREASED from 0.01 for better signal-to-noise ratio
         curriculum_weight: float = 1.0,
     ):
         """
@@ -146,15 +146,15 @@ class SlimeVolleyRewardShaper:
 # Stages transition from survival-focused (early) to win-focused (late)
 CURRICULUM_CONFIGS = {
     "survival": {
-        "survival_scale": 0.01,
+        "survival_scale": 0.01,  # INCREASED from 0.01 for better signal-to-noise ratio
         "curriculum_weight": 1.0,  # 100% survival, 0% wins
     },
     "mixed": {
-        "survival_scale": 0.01,
+        "survival_scale": 0.01,  # INCREASED from 0.01 for better signal-to-noise ratio
         "curriculum_weight": 0.5,  # 50% survival, 50% wins
     },
     "wins": {
-        "survival_scale": 0.01,
+        "survival_scale": 0.01,  # INCREASED from 0.01 for better signal-to-noise ratio
         "curriculum_weight": 0.0,  # 0% survival, 100% wins (pure reward)
     },
 }

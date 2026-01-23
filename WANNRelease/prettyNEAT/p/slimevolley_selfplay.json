@@ -29,7 +29,7 @@
   "bestReps": 50,
   "_comment_self_play": "Self-play configuration",
   "selfplay_enabled": true,
-  "selfplay_eval_mode": "mixed",
+  "selfplay_eval_mode": "survival",
   "selfplay_baseline_weight": 0.6,
   "selfplay_archive_weight": 0.4,
   "selfplay_n_archive_opponents": 3,

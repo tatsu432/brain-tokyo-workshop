@@ -388,7 +388,7 @@ def run_worker(hyp: dict):
         task = SelfPlayGymTask(
             game_config,
             nReps=hyp["alg_nReps"],
-            eval_mode=hyp.get("selfplay_eval_mode", "mixed"),
+            eval_mode=hyp.get("selfplay_eval_mode", "survival"),
             baseline_weight=hyp.get("selfplay_baseline_weight", 0.6),
             archive_weight=hyp.get("selfplay_archive_weight", 0.4),
             n_archive_opponents=hyp.get("selfplay_n_archive_opponents", 3),
