@@ -38,7 +38,6 @@ class SlimeVolleyActionProcessor:
         [1, 0, 1],  # 5: right + jump
     ]
 
-
     def __init__(self, clip_actions: bool = True):
         """
         Initialize action processor.
@@ -50,7 +49,9 @@ class SlimeVolleyActionProcessor:
         """
         self.clip_actions = clip_actions
 
-    def process(self, action: Union[int, float, np.ndarray], threshold: float = 0.0) -> np.ndarray:
+    def process(
+        self, action: Union[int, float, np.ndarray], threshold: float = 0.0
+    ) -> np.ndarray:
         """
         Convert NEAT output to binary actions [forward, backward, jump].
 

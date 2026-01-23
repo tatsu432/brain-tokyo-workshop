@@ -15,15 +15,17 @@ _pending_curriculum_requests = []
 def update_curriculum(
     pop_stats: Dict[str, float],
     current_stage: Optional[str],
-    touch_threshold: float = 5.0,
-    rally_threshold: float = 0.0,
+    time_steps_threshold: float = 1500,
+    rally_threshold: float = 100,
 ) -> str:
     """Update curriculum stage based on population statistics.
 
     Args:
-        pop_stats: Dictionary with 'avg_touches', 'avg_rallies_won', 'avg_rallies_lost'
+        pop_stats: Dictionary with 'avg_total_steps', 'avg_rallies_won', 'avg_rallies_lost'
         current_stage: Current curriculum stage ('survival', 'mixed', 'wins', or None)
-        touch_threshold: Average touches needed to advance from 'survival' to 'mixed'
+        time_steps_threshold: Average steps per episode needed to advance from 'survival' to 'mixed'
+                         Also required to advance from 'mixed' to 'wins' (maintains survival skill)
+                         Note: Despite the name, this threshold is now based on time steps, not touches
         rally_threshold: Average rally difference needed to advance from 'mixed' to 'wins'
 
     Returns:
@@ -32,22 +34,27 @@ def update_curriculum(
     if current_stage is None:
         return "survival"
 
-    avg_touches = pop_stats.get("avg_touches", 0)
+    avg_total_steps = pop_stats.get("avg_total_steps", 0)
     avg_rally_diff = pop_stats.get("avg_rallies_won", 0) - pop_stats.get(
         "avg_rallies_lost", 0
     )
 
     if current_stage == "survival":
-        if avg_touches >= touch_threshold:
+        # Advance from survival to mixed: check survival metric (average steps per episode)
+        if avg_total_steps >= time_steps_threshold:
             logger.info(
-                f"Curriculum: Advancing from 'survival' to 'mixed' (avg_touches={avg_touches:.1f})"
+                f"Curriculum: Advancing from 'survival' to 'mixed' (avg_total_steps={avg_total_steps:.1f})"
             )
             return "mixed"
 
     elif current_stage == "mixed":
-        if avg_rally_diff >= rally_threshold:
+        # Advance from mixed to wins: check BOTH survival AND win metrics
+        # In mixed stage, agents are rewarded 50% for survival and 50% for wins,
+        # so we require competence in both before advancing to pure wins
+        if avg_total_steps >= time_steps_threshold and avg_rally_diff >= rally_threshold:
             logger.info(
-                f"Curriculum: Advancing from 'mixed' to 'wins' (rally_diff={avg_rally_diff:.1f})"
+                f"Curriculum: Advancing from 'mixed' to 'wins' "
+                f"(avg_total_steps={avg_total_steps:.1f}, rally_diff={avg_rally_diff:.1f})"
             )
             return "wins"
 

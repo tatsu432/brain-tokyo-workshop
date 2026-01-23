@@ -1,10 +1,10 @@
 {
     "_comment": "SlimeVolley with Shaped Rewards (Non-Self-Play)",
     "_comment_curriculum": "Set enable_curriculum to true to use curriculum learning, false for fixed rewards",
-    "_comment_thresholds": "touch_threshold: average touches per episode to advance from 'touch' stage (lower = easier progression)",
+    "_comment_thresholds": "time_steps_threshold: average steps per episode to advance from 'survival' to 'mixed' stage (lower = easier progression). Note: Despite the name, this is now based on time steps, not touches.",
     "task": "slimevolley_shaped",
     "enable_curriculum": true,
-    "touch_threshold": 10,
+    "time_steps_threshold": 750,
     "maxGen": 1024,
     "popSize": 128,
     "alg_nReps": 5,

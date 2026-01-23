@@ -130,7 +130,7 @@ class EvolutionRunner:
                     self.curriculum_stage = update_curriculum(
                         pop_stats,
                         self.curriculum_stage,
-                        self.selfplay_config.touch_threshold,
+                        self.selfplay_config.time_steps_threshold,
                         self.selfplay_config.rally_threshold,
                     )
                     broadcast_curriculum_stage(self.curriculum_stage, self.n_worker)
@@ -156,8 +156,8 @@ class EvolutionRunner:
                     self.curriculum_stage = update_curriculum(
                         pop_stats,
                         self.curriculum_stage,
-                        self.hyp.get("touch_threshold", 5.0),
-                        self.hyp.get("rally_threshold", 0.0),
+                        self.hyp.get("time_steps_threshold", 750),
+                        self.hyp.get("rally_threshold", 100),
                     )
                     broadcast_curriculum_stage(self.curriculum_stage, self.n_worker)
 

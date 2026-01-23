@@ -145,8 +145,8 @@ class SelfPlayGymTask:
         n_archive_opponents: int = 3,  # Number of archive opponents per eval
         # Curriculum configuration
         enable_curriculum: bool = True,
-        touch_threshold: float = 5.0,  # Avg touches to advance from 'touch'
-        rally_threshold: float = 0.0,  # Avg rally diff to advance from 'rally'
+        time_steps_threshold: float = 5.0,  # Avg steps per episode to advance from 'survival' to 'mixed'
+        rally_threshold: float = 100,  # Avg rally diff to advance from 'rally'
     ):
         """
         Initialize self-play task.
@@ -160,7 +160,8 @@ class SelfPlayGymTask:
             archive_weight: Weight for archive opponent evaluation
             n_archive_opponents: Number of archive opponents to sample
             enable_curriculum: Whether to use curriculum learning
-            touch_threshold: Average ball touches to advance from 'touch' stage
+            time_steps_threshold: Average steps per episode to advance from 'survival' to 'mixed' stage
+                             (Note: Despite the name, this is now based on time steps, not touches)
             rally_threshold: Average (wins-losses) to advance from 'rally' stage
         """
         # Network properties
@@ -194,13 +195,13 @@ class SelfPlayGymTask:
 
         # Curriculum learning
         self.enable_curriculum = enable_curriculum
-        self.touch_threshold = touch_threshold
+        self.time_steps_threshold = time_steps_threshold
         self.rally_threshold = rally_threshold
         self.current_stage = "survival"  # 'survival', 'mixed', 'wins'
 
         # Statistics for curriculum advancement
         self.generation_stats = {
-            "avg_touches": 0.0,
+            "avg_total_steps": 0.0,
             "avg_rally_diff": 0.0,
             "avg_fitness": 0.0,
         }
@@ -226,21 +227,44 @@ class SelfPlayGymTask:
         Check if we should advance to the next curriculum stage.
 
         Args:
-            population_stats: Dict with 'avg_touches', 'avg_rally_diff', 'avg_fitness'
+            population_stats: Dict with 'avg_total_steps', 'avg_rallies_won', 'avg_rallies_lost'
+                             (or 'avg_rally_diff' if pre-computed)
         """
         if not self.enable_curriculum:
             return
 
         self.generation_stats.update(population_stats)
 
+        avg_total_steps = population_stats.get("avg_total_steps", 0)
+        # Compute rally difference from won/lost if not directly provided
+        if "avg_rally_diff" in population_stats:
+            avg_rally_diff = population_stats.get("avg_rally_diff", 0)
+        else:
+            avg_rally_diff = population_stats.get(
+                "avg_rallies_won", 0
+            ) - population_stats.get("avg_rallies_lost", 0)
+
         if self.current_stage == "survival":
-            if population_stats.get("avg_touches", 0) >= self.touch_threshold:
-                print("Curriculum: Advancing from 'survival' to 'mixed' stage")
+            # Advance from survival to mixed: check survival metric (average steps per episode)
+            if avg_total_steps >= self.time_steps_threshold:
+                print(
+                    f"Curriculum: Advancing from 'survival' to 'mixed' stage "
+                    f"(avg_total_steps={avg_total_steps:.1f})"
+                )
                 self.set_curriculum_stage("mixed")
 
         elif self.current_stage == "mixed":
-            if population_stats.get("avg_rally_diff", 0) >= self.rally_threshold:
-                print("Curriculum: Advancing from 'mixed' to 'wins' stage")
+            # Advance from mixed to wins: check BOTH survival AND win metrics
+            # In mixed stage, agents are rewarded 50% for survival and 50% for wins,
+            # so we require competence in both before advancing to pure wins
+            if (
+                avg_total_steps >= self.time_steps_threshold
+                and avg_rally_diff >= self.rally_threshold
+            ):
+                print(
+                    f"Curriculum: Advancing from 'mixed' to 'wins' stage "
+                    f"(avg_total_steps={avg_total_steps:.1f}, rally_diff={avg_rally_diff:.1f})"
+                )
                 self.set_curriculum_stage("wins")
 
     def add_to_archive(

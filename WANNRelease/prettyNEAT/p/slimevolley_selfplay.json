@@ -39,7 +39,7 @@
   "_comment_curriculum_note2": "For self-play, you can also use selfplay_enable_curriculum (overridden by enable_curriculum if set)",
   "enable_curriculum": true,
   "selfplay_enable_curriculum": true,
-  "selfplay_touch_threshold": 5.0,
+  "selfplay_time_steps_threshold": 5.0,
   "selfplay_rally_threshold": 0.0,
   "_comment_rendering": "Training visualization settings",
   "render_enabled": true,

@@ -27,8 +27,10 @@ class SelfPlayConfig:
 
     # Curriculum settings
     enable_curriculum: bool = True
-    touch_threshold: float = 5.0  # Avg touches to advance from 'touch' stage
-    rally_threshold: float = 0.0  # Avg rally diff to advance from 'rally' stage
+    time_steps_threshold: float = (
+        750  # Avg steps per episode to advance from 'survival' to 'mixed' stage
+    )
+    rally_threshold: float = 100  # Avg rally diff to advance from 'rally' stage
 
     @classmethod
     def from_hyperparameters(cls, hyp: dict) -> "SelfPlayConfig":
@@ -41,6 +43,6 @@ class SelfPlayConfig:
         config.n_archive_opponents = hyp.get("selfplay_n_archive_opponents", 3)
         config.archive_add_frequency = hyp.get("selfplay_archive_add_freq", 5)
         config.enable_curriculum = hyp.get("selfplay_enable_curriculum", True)
-        config.touch_threshold = hyp.get("touch_threshold", 5.0)
-        config.rally_threshold = hyp.get("rally_threshold", 0.0)
+        config.time_steps_threshold = hyp.get("time_steps_threshold", 750)
+        config.rally_threshold = hyp.get("rally_threshold", 100)
         return config
