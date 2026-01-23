@@ -102,6 +102,7 @@ class DataGatherer:
             "avg_rallies_lost": "RallyL",
             "avg_ball_time_opponent_side": "BallOpp",
             "avg_tracking_reward": "Track",
+            "avg_total_steps": "Steps",
         }
 
         # Action distribution tracking
@@ -135,7 +136,8 @@ class DataGatherer:
                         If None, raw fitness is assumed to equal total fitness (no shaping)
           shaped_stats - (dict)    - aggregated shaped reward component statistics
                         Keys: avg_touches, avg_rallies_won, avg_rallies_lost,
-                              avg_ball_time_opponent_side, avg_tracking_reward
+                              avg_ball_time_opponent_side, avg_tracking_reward,
+                              avg_total_steps
         """
 
         # Readability
@@ -332,6 +334,10 @@ class DataGatherer:
             # Tracking reward (cumulative)
             if "avg_tracking_reward" in stats:
                 shaped_parts.append("Track:{:.2f}".format(stats["avg_tracking_reward"]))
+
+            # Total steps (timesteps)
+            if "avg_total_steps" in stats:
+                shaped_parts.append("Steps:{:.0f}".format(stats["avg_total_steps"]))
 
             if shaped_parts:
                 output += " | Shp: " + " ".join(shaped_parts)

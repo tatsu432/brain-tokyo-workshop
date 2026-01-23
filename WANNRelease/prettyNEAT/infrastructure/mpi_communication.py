@@ -61,6 +61,7 @@ def batch_mpi_eval(
     total_rallies_lost = 0
     total_ball_time_opponent_side = 0
     total_tracking_reward = 0.0
+    total_steps = 0
     total_episodes = 0
 
     i = 0  # Index of fitness we are filling
@@ -122,6 +123,7 @@ def batch_mpi_eval(
                     "ball_time_opponent_side", 0
                 )
                 total_tracking_reward += ep_stats.get("tracking_reward", 0.0)
+                total_steps += ep_stats.get("total_steps", 0)
                 total_episodes += 1
 
                 # Receive raw fitness
@@ -153,6 +155,7 @@ def batch_mpi_eval(
         "avg_ball_time_opponent_side": total_ball_time_opponent_side
         / max(total_episodes, 1),
         "avg_tracking_reward": total_tracking_reward / max(total_episodes, 1),
+        "avg_total_steps": total_steps / max(total_episodes, 1),
     }
 
     if track_actions:
@@ -199,6 +202,7 @@ def batch_mpi_eval_selfplay(
     total_rallies_lost = 0
     total_ball_time_opponent_side = 0
     total_tracking_reward = 0.0
+    total_steps = 0
     total_episodes = 0
 
     if verbose:
@@ -282,6 +286,7 @@ def batch_mpi_eval_selfplay(
                     "ball_time_opponent_side", 0
                 )
                 total_tracking_reward += ep_stats.get("tracking_reward", 0.0)
+                total_steps += ep_stats.get("total_steps", 0)
                 total_episodes += 1
 
                 # Receive raw fitness
@@ -312,6 +317,7 @@ def batch_mpi_eval_selfplay(
         "avg_ball_time_opponent_side": total_ball_time_opponent_side
         / max(total_episodes, 1),
         "avg_tracking_reward": total_tracking_reward / max(total_episodes, 1),
+        "avg_total_steps": total_steps / max(total_episodes, 1),
     }
 
     return reward, action_dist_agg, pop_stats, raw_reward
