@@ -259,14 +259,19 @@ class DataGatherer:
         
         The reset prepares the tracking so that the next generation's elite will
         be treated as a new best, starting fresh tracking for the new curriculum stage.
+        
+        IMPORTANT: This method preserves historical entries in self.best to maintain
+        compatibility with save(gen) which accesses self.best[gen]. Only the last
+        entry is updated to serve as the baseline for the new curriculum stage.
         """
         # Reset best individual tracking to current elite (if any exists)
         # This ensures the next gatherData call will compare against the current
         # elite rather than an old best from a different curriculum stage
-        if len(self.elite) > 0:
-            # Reset best list to contain only the current elite
-            # This way, the next gatherData will compare new elite against this one
-            self.best = [copy.deepcopy(self.elite[-1])]
+        if len(self.elite) > 0 and len(self.best) > 0:
+            # Update the last entry in self.best to be the current elite
+            # This preserves history (needed for save(gen)) while resetting the baseline
+            # The next gatherData will compare against self.best[-1] which is now the current elite
+            self.best[-1] = copy.deepcopy(self.elite[-1])
             
             # Update the last entry in fit_top to be the current elite's fitness
             # (this will be the baseline for the new curriculum stage)
@@ -279,7 +284,7 @@ class DataGatherer:
             # Reset raw fitness tracking to current elite's raw fitness
             if len(self.elite_raw_fitness) > 0:
                 elite_raw = self.elite_raw_fitness[-1]
-                # Reset best raw fitness list to contain only current elite's raw fitness
+                # Update the last entry in best_raw_fitness to be the current elite's raw fitness
                 if len(self.best_raw_fitness) > 0:
                     self.best_raw_fitness[-1] = elite_raw
                 else:
@@ -298,11 +303,30 @@ class DataGatherer:
                 self.current_best_raw_fitness = None
                 if len(self.fit_top_raw) > 0:
                     self.fit_top_raw[-1] = 0.0
+        elif len(self.elite) > 0:
+            # We have an elite but no best yet - initialize best with current elite
+            self.best = [copy.deepcopy(self.elite[-1])]
+            if len(self.fit_top) > 0:
+                self.fit_top[-1] = self.elite[-1].fitness
+            else:
+                self.fit_top = np.array([self.elite[-1].fitness])
+            if len(self.elite_raw_fitness) > 0:
+                elite_raw = self.elite_raw_fitness[-1]
+                self.best_raw_fitness = [elite_raw]
+                self.current_best_raw_fitness = elite_raw
+                if len(self.fit_top_raw) > 0:
+                    self.fit_top_raw[-1] = elite_raw
+                else:
+                    self.fit_top_raw = np.array([elite_raw])
+            else:
+                self.best_raw_fitness = [None]
+                self.current_best_raw_fitness = None
+                if len(self.fit_top_raw) > 0:
+                    self.fit_top_raw[-1] = 0.0
         else:
             # No elite yet - this shouldn't happen in normal flow, but handle gracefully
-            # Clear the best tracking so next generation starts fresh
-            self.best = []
-            self.best_raw_fitness = []
+            # Don't clear self.best as it might have historical entries needed for save()
+            # Just ensure current_best_raw_fitness is None
             self.current_best_raw_fitness = None
 
     def set_display_config(self, **kwargs):

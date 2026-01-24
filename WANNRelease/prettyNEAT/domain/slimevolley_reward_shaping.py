@@ -151,7 +151,7 @@ CURRICULUM_CONFIGS = {
     },
     "mixed": {
         "survival_scale": 0.01,  # INCREASED from 0.01 for better signal-to-noise ratio
-        "curriculum_weight": 0.4,  # 40% survival, 60% wins
+        "curriculum_weight": 0.5,  # 50% survival, 50% wins
     },
     "wins": {
         "survival_scale": 0.01,  # INCREASED from 0.01 for better signal-to-noise ratio
