@@ -15,17 +15,16 @@ _pending_curriculum_requests = []
 def update_curriculum(
     pop_stats: Dict[str, float],
     current_stage: Optional[str],
-    time_steps_threshold: float = 750,
-    time_steps_threshold_wins: float = 800,
+    elite_fitness_threshold: float = 15.0,
+    elite_fitness_threshold_wins: float = 15.7,
 ) -> str:
     """Update curriculum stage based on population statistics.
 
     Args:
-        pop_stats: Dictionary with 'avg_total_steps'
+        pop_stats: Dictionary with 'elite_fitness' (fitness of the best individual in the generation)
         current_stage: Current curriculum stage ('survival', 'mixed', 'wins', or None)
-        time_steps_threshold: Average steps per episode needed to advance from 'survival' to 'mixed'
-        time_steps_threshold_wins: Average steps per episode needed to advance from 'mixed' to 'wins'
-                                   (maintains survival skill at higher level)
+        elite_fitness_threshold: Elite fitness threshold needed to advance from 'survival' to 'mixed'
+        elite_fitness_threshold_wins: Elite fitness threshold needed to advance from 'mixed' to 'wins'
 
     Returns:
         Updated curriculum stage
@@ -33,22 +32,22 @@ def update_curriculum(
     if current_stage is None:
         return "survival"
 
-    avg_total_steps = pop_stats.get("avg_total_steps", 0)
+    elite_fitness = pop_stats.get("elite_fitness", 0.0)
 
     if current_stage == "survival":
-        # Advance from survival to mixed: check survival metric (average steps per episode)
-        if avg_total_steps >= time_steps_threshold:
+        # Advance from survival to mixed: check elite fitness
+        if elite_fitness >= elite_fitness_threshold:
             logger.info(
-                f"Curriculum: Advancing from 'survival' to 'mixed' (avg_total_steps={avg_total_steps:.1f})"
+                f"Curriculum: Advancing from 'survival' to 'mixed' (elite_fitness={elite_fitness:.1f})"
             )
             return "mixed"
 
     elif current_stage == "mixed":
-        # Advance from mixed to wins: check survival metric at higher threshold
-        if avg_total_steps >= time_steps_threshold_wins:
+        # Advance from mixed to wins: check elite fitness at higher threshold
+        if elite_fitness >= elite_fitness_threshold_wins:
             logger.info(
                 f"Curriculum: Advancing from 'mixed' to 'wins' "
-                f"(avg_total_steps={avg_total_steps:.1f})"
+                f"(elite_fitness={elite_fitness:.1f})"
             )
             return "wins"
 

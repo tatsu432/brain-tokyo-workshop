@@ -27,11 +27,11 @@ class SelfPlayConfig:
 
     # Curriculum settings
     enable_curriculum: bool = True
-    time_steps_threshold: float = (
-        750  # Avg steps per episode to advance from 'survival' to 'mixed' stage
+    elite_fitness_threshold: float = (
+        15.0  # Elite fitness threshold to advance from 'survival' to 'mixed' stage
     )
-    time_steps_threshold_wins: float = (
-        800  # Avg steps per episode to advance from 'mixed' to 'wins' stage
+    elite_fitness_threshold_wins: float = (
+        15.7  # Elite fitness threshold to advance from 'mixed' to 'wins' stage
     )
 
     @classmethod
@@ -45,6 +45,6 @@ class SelfPlayConfig:
         config.n_archive_opponents = hyp.get("selfplay_n_archive_opponents", 3)
         config.archive_add_frequency = hyp.get("selfplay_archive_add_freq", 5)
         config.enable_curriculum = hyp.get("selfplay_enable_curriculum", True)
-        config.time_steps_threshold = hyp.get("time_steps_threshold", 750)
-        config.time_steps_threshold_wins = hyp.get("time_steps_threshold_wins", 800)
+        config.elite_fitness_threshold = hyp.get("elite_fitness_threshold", 15.0)
+        config.elite_fitness_threshold_wins = hyp.get("elite_fitness_threshold_wins", 15.7)
         return config

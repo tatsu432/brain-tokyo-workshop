@@ -145,8 +145,8 @@ class SelfPlayGymTask:
         n_archive_opponents: int = 3,  # Number of archive opponents per eval
         # Curriculum configuration
         enable_curriculum: bool = True,
-        time_steps_threshold: float = 750,  # Avg steps per episode to advance from 'survival' to 'mixed'
-        time_steps_threshold_wins: float = 800,  # Avg steps per episode to advance from 'mixed' to 'wins'
+        elite_fitness_threshold: float = 15.0,  # Elite fitness threshold to advance from 'survival' to 'mixed'
+        elite_fitness_threshold_wins: float = 15.7,  # Elite fitness threshold to advance from 'mixed' to 'wins'
     ):
         """
         Initialize self-play task.
@@ -160,8 +160,8 @@ class SelfPlayGymTask:
             archive_weight: Weight for archive opponent evaluation
             n_archive_opponents: Number of archive opponents to sample
             enable_curriculum: Whether to use curriculum learning
-            time_steps_threshold: Average steps per episode to advance from 'survival' to 'mixed' stage
-            time_steps_threshold_wins: Average steps per episode to advance from 'mixed' to 'wins' stage
+            elite_fitness_threshold: Elite fitness threshold to advance from 'survival' to 'mixed' stage
+            elite_fitness_threshold_wins: Elite fitness threshold to advance from 'mixed' to 'wins' stage
         """
         # Network properties
         self.nInput = game.input_size
@@ -194,8 +194,8 @@ class SelfPlayGymTask:
 
         # Curriculum learning
         self.enable_curriculum = enable_curriculum
-        self.time_steps_threshold = time_steps_threshold
-        self.time_steps_threshold_wins = time_steps_threshold_wins
+        self.elite_fitness_threshold = elite_fitness_threshold
+        self.elite_fitness_threshold_wins = elite_fitness_threshold_wins
         self.current_stage = "survival"  # 'survival', 'mixed', 'wins'
 
         # Statistics for curriculum advancement
@@ -232,30 +232,30 @@ class SelfPlayGymTask:
         Check if we should advance to the next curriculum stage.
 
         Args:
-            population_stats: Dict with 'avg_total_steps'
+            population_stats: Dict with 'elite_fitness'
         """
         if not self.enable_curriculum:
             return
 
         self.generation_stats.update(population_stats)
 
-        avg_total_steps = population_stats.get("avg_total_steps", 0)
+        elite_fitness = population_stats.get("elite_fitness", 0.0)
 
         if self.current_stage == "survival":
-            # Advance from survival to mixed: check survival metric (average steps per episode)
-            if avg_total_steps >= self.time_steps_threshold:
+            # Advance from survival to mixed: check elite fitness
+            if elite_fitness >= self.elite_fitness_threshold:
                 print(
                     f"Curriculum: Advancing from 'survival' to 'mixed' stage "
-                    f"(avg_total_steps={avg_total_steps:.1f})"
+                    f"(elite_fitness={elite_fitness:.1f})"
                 )
                 self.set_curriculum_stage("mixed")
 
         elif self.current_stage == "mixed":
-            # Advance from mixed to wins: check survival metric at higher threshold
-            if avg_total_steps >= self.time_steps_threshold_wins:
+            # Advance from mixed to wins: check elite fitness at higher threshold
+            if elite_fitness >= self.elite_fitness_threshold_wins:
                 print(
                     f"Curriculum: Advancing from 'mixed' to 'wins' stage "
-                    f"(avg_total_steps={avg_total_steps:.1f})"
+                    f"(elite_fitness={elite_fitness:.1f})"
                 )
                 self.set_curriculum_stage("wins")
 

@@ -148,6 +148,7 @@ def batch_mpi_eval(
             action_dist_agg = action_dist_agg / total
 
     # Compute population statistics for curriculum learning and shaped reward tracking
+    elite_fitness = np.max(reward) if len(reward) > 0 else 0.0
     pop_stats = {
         "avg_touches": total_touches / max(total_episodes, 1),
         "avg_rallies_won": total_rallies_won / max(total_episodes, 1),
@@ -156,6 +157,7 @@ def batch_mpi_eval(
         / max(total_episodes, 1),
         "avg_tracking_reward": total_tracking_reward / max(total_episodes, 1),
         "avg_total_steps": total_steps / max(total_episodes, 1),
+        "elite_fitness": elite_fitness,
     }
 
     if track_actions:
@@ -310,6 +312,7 @@ def batch_mpi_eval_selfplay(
             action_dist_agg = action_dist_agg / total
 
     # Compute population statistics for curriculum learning and shaped reward tracking
+    elite_fitness = np.max(reward) if len(reward) > 0 else 0.0
     pop_stats = {
         "avg_touches": total_touches / max(total_episodes, 1),
         "avg_rallies_won": total_rallies_won / max(total_episodes, 1),
@@ -318,6 +321,7 @@ def batch_mpi_eval_selfplay(
         / max(total_episodes, 1),
         "avg_tracking_reward": total_tracking_reward / max(total_episodes, 1),
         "avg_total_steps": total_steps / max(total_episodes, 1),
+        "elite_fitness": elite_fitness,
     }
 
     return reward, action_dist_agg, pop_stats, raw_reward

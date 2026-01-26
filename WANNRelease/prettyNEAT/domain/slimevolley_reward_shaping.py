@@ -16,6 +16,12 @@ from typing import Any, Dict, Optional
 
 import numpy as np
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+logger.setLevel(logging.INFO)
+
 
 class SlimeVolleyRewardShaper:
     """
@@ -97,20 +103,23 @@ class SlimeVolleyRewardShaper:
         total_reward = curriculum_weight * survival_reward + (1 - curriculum_weight) * win_reward
         where:
         - survival_reward = total_steps * survival_scale
-        - win_reward = rallies_won
+        - raw_game_reward = raw_game_reward * 3
 
         Returns:
             final_reward: Blended reward based on curriculum weight
         """
         survival_reward = self.episode_stats["total_steps"] * self.survival_scale
-        win_reward = float(self.episode_stats["rallies_won"])
+        raw_game_reward = float(self.episode_stats["raw_game_reward"]) * 3
 
         # Blend based on curriculum weight
         total_reward = (
             self.curriculum_weight * survival_reward
-            + (1.0 - self.curriculum_weight) * win_reward
+            + (1.0 - self.curriculum_weight) * raw_game_reward * 3
         )
 
+        logger.debug(f"rally_won: {self.episode_stats['rallies_won']}")
+        logger.debug(f"Total reward: {total_reward}")
+        logger.debug(f"raw_game_reward: {self.episode_stats['raw_game_reward']}")
         return total_reward
 
     def get_episode_stats(self) -> Dict[str, Any]:
@@ -155,6 +164,6 @@ CURRICULUM_CONFIGS = {
     },
     "wins": {
         "survival_scale": 0.01,  # INCREASED from 0.01 for better signal-to-noise ratio
-        "curriculum_weight": 0.0,  # 0% survival, 100% wins (pure reward)
+        "curriculum_weight": 0.05,  # 5% survival, 95% wins (pure reward)
     },
 }

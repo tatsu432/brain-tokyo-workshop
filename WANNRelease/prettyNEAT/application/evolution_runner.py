@@ -133,8 +133,8 @@ class EvolutionRunner:
                     self.curriculum_stage = update_curriculum(
                         pop_stats,
                         self.curriculum_stage,
-                        self.selfplay_config.time_steps_threshold,
-                        self.selfplay_config.time_steps_threshold_wins,
+                        self.selfplay_config.elite_fitness_threshold,
+                        self.selfplay_config.elite_fitness_threshold_wins,
                     )
                     # Check if curriculum stage changed (reset will happen after gather_data)
                     if previous_stage is not None and self.curriculum_stage != previous_stage:
@@ -164,8 +164,8 @@ class EvolutionRunner:
                     self.curriculum_stage = update_curriculum(
                         pop_stats,
                         self.curriculum_stage,
-                        self.hyp.get("time_steps_threshold", 750),
-                        self.hyp.get("time_steps_threshold_wins", 800),
+                        self.hyp.get("elite_fitness_threshold", 15.0),
+                        self.hyp.get("elite_fitness_threshold_wins", 15.7),
                     )
                     # Check if curriculum stage changed (reset will happen after gather_data)
                     if previous_stage is not None and self.curriculum_stage != previous_stage:

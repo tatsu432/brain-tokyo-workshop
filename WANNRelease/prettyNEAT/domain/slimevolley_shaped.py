@@ -12,6 +12,8 @@ Key Design Principles:
 3. Clean architecture: Reward computation separated from environment logic
 """
 
+import logging
+
 import numpy as np
 
 from domain.slimevolley_base import BaseSlimeVolleyEnv
@@ -19,6 +21,10 @@ from domain.slimevolley_reward_shaping import (
     CURRICULUM_CONFIGS,
     SlimeVolleyRewardShaper,
 )
+
+logger = logging.getLogger(__name__)
+
+logger.setLevel(logging.INFO)
 
 
 class SlimeVolleyShapedEnv(BaseSlimeVolleyEnv):
@@ -111,6 +117,7 @@ class SlimeVolleyShapedEnv(BaseSlimeVolleyEnv):
                 * self.reward_shaper.survival_scale
             )
             info["win_reward"] = float(self.reward_shaper.episode_stats["rallies_won"])
+            logger.debug(f"Final reward: {final_reward}")
             return obs, final_reward, done, info
 
         # During episode, return 0 reward (all reward computed at end)
