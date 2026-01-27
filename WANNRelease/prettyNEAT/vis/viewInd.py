@@ -33,7 +33,7 @@ def viewInd(ind, taskName):
     # Draw Graph
     fig = plt.figure(figsize=(10, 10), dpi=100)
     ax = fig.add_subplot(111)
-    drawEdge(G, pos, wMat, layer)
+    weight_stats = drawEdge(G, pos, wMat, layer)
     nx.draw_networkx_nodes(
         G, pos, node_color="lightblue", node_shape="o", cmap="terrain", vmin=0, vmax=6
     )
@@ -49,6 +49,9 @@ def viewInd(ind, taskName):
         labelleft=False,
         labelbottom=False,
     )  # labels along the bottom edge are off
+
+    # Add legend for connection styles and weights
+    addConnectionLegend(ax, weight_stats)
 
     return fig, ax
 
@@ -242,7 +245,15 @@ def drawEdge(G, pos, wMat, layer):
             weight_range = 1.0  # Avoid division by zero
     else:
         min_weight = 0
+        max_weight = 0
         weight_range = 1.0
+    
+    # Store weight statistics for legend
+    weight_stats = {
+        'min_weight': min_weight,
+        'max_weight': max_weight,
+        'weight_range': weight_range
+    }
 
     # Layer Colors
     for i in range(len(edgeLayer)):
@@ -304,6 +315,8 @@ def drawEdge(G, pos, wMat, layer):
                 arrowsize=8,
                 style='dashed',
             )
+    
+    return weight_stats
 
 
 def getLayer(wMat):
@@ -332,6 +345,66 @@ def cLinspace(start, end, N):
         return np.mean([start, end])
     else:
         return np.linspace(start, end, N)
+
+
+def addConnectionLegend(ax, weight_stats):
+    """Add legend showing connection styles (solid/dashed) and weight magnitudes."""
+    from matplotlib.lines import Line2D
+    
+    legend_elements = []
+    
+    # Add line style legend (positive vs negative)
+    legend_elements.append(Line2D([0], [0], color='gray', linestyle='solid', linewidth=2, 
+                                  label='Positive weight'))
+    legend_elements.append(Line2D([0], [0], color='gray', linestyle='dashed', linewidth=2, 
+                                  label='Negative weight'))
+    
+    # Add separator
+    legend_elements.append(Line2D([0], [0], color='none', label=''))
+    
+    # Add weight magnitude legend with example line widths
+    min_weight = weight_stats['min_weight']
+    max_weight = weight_stats['max_weight']
+    weight_range = weight_stats['weight_range']
+    
+    if weight_range > 0 and max_weight > 0:
+        # Create example weights for legend (min, ~25%, ~50%, ~75%, max)
+        example_weights = []
+        if min_weight > 0:
+            example_weights.append(min_weight)
+        example_weights.extend([
+            min_weight + weight_range * 0.25,
+            min_weight + weight_range * 0.5,
+            min_weight + weight_range * 0.75,
+            max_weight
+        ])
+        # Remove duplicates and sort
+        example_weights = sorted(list(set(example_weights)))
+        
+        # Calculate corresponding line widths
+        for w in example_weights:
+            normalized = (w - min_weight) / weight_range if weight_range > 0 else 0.5
+            width = 0.5 + normalized * 4.5  # Same scaling as in drawEdge
+            # Format weight value nicely
+            if abs(w) < 0.01:
+                weight_str = f"{w:.3f}"
+            elif abs(w) < 1:
+                weight_str = f"{w:.2f}"
+            else:
+                weight_str = f"{w:.1f}"
+            legend_elements.append(Line2D([0], [0], color='gray', linestyle='solid', 
+                                          linewidth=width, label=f'Weight: {weight_str}'))
+    else:
+        # Fallback if no weights
+        legend_elements.append(Line2D([0], [0], color='gray', linestyle='solid', 
+                                      linewidth=1.0, label='Weight magnitude'))
+    
+    # Create legend in upper right corner
+    legend = ax.legend(handles=legend_elements, loc='upper right', 
+                       frameon=True, fancybox=True, shadow=True,
+                       fontsize=9, title='Connection Legend', title_fontsize=10)
+    legend.get_frame().set_facecolor('white')
+    legend.get_frame().set_alpha(0.9)
 
 
 def lload(fileName):
