@@ -161,20 +161,44 @@ def drawNodeLabels(G, pos, aVec):
             ]
         )
     )
+    # Color mapping for activation functions
+    actColors = {
+        0: 'gray',      # unused
+        1: 'black',     # Linear - black
+        2: 'red',       # Step - red
+        3: 'blue',      # Sin - blue
+        4: 'purple',    # Gauss - purple
+        5: 'green',     # Tanh - green
+        6: 'orange',    # Sigmoid - orange
+        7: 'brown',    # Inverse - brown
+        8: 'cyan',      # Abs - cyan
+        9: 'magenta',   # ReLU - magenta
+        10: 'navy',     # Cos - navy blue
+        11: 'olive',    # Squared - olive
+    }
+    
     # Handle out-of-bounds indices (shouldn't happen, but be safe)
     aVec_int = aVec.astype(int)
     aVec_int = np.clip(aVec_int, 0, len(actLabel) - 1)
     listLabel = actLabel[aVec_int]
     label = dict(enumerate(listLabel))
-    # Draw labels with larger, more readable font
-    nx.draw_networkx_labels(
-        G, 
-        pos, 
-        labels=label,
-        font_size=8,
-        font_weight='bold',
-        font_color='black'
-    )
+    
+    # Create color mapping for each node
+    label_colors = {}
+    for node_id, act_id in enumerate(aVec_int):
+        label_colors[node_id] = actColors.get(act_id, 'black')
+    
+    # Draw labels with color coding - need to draw individually to set different colors
+    for node_id, label_text in label.items():
+        if label_text:  # Only draw if label is not empty
+            nx.draw_networkx_labels(
+                G,
+                pos,
+                labels={node_id: label_text},
+                font_size=8,
+                font_weight='bold',
+                font_color=label_colors[node_id]
+            )
 
 
 def drawEdge(G, pos, wMat, layer):
@@ -182,7 +206,8 @@ def drawEdge(G, pos, wMat, layer):
     # Organize edges by layer
     _, nPerLayer = np.unique(layer, return_counts=True)
     edgeLayer = []
-    edgeWeights = []  # Store weights for each layer
+    edgeWeights = []  # Store weights for each layer (signed, not absolute)
+    edgeSigns = []  # Store sign info for each layer (True = positive, False = negative)
     layBord = np.cumsum(nPerLayer)
     for i in range(0, len(layBord)):
         tmpMat = np.copy(wMat)
@@ -194,11 +219,14 @@ def drawEdge(G, pos, wMat, layer):
         edges = list(zip(rows.tolist(), cols.tolist()))  # Convert to list to avoid zip exhaustion
         edgeLayer.append(nx.DiGraph())
         edgeLayer[-1].add_edges_from(edges)
-        # Store weights for edges in this layer
-        weights = [abs(tmpMat[r, c]) for r, c in edges]
-        edgeWeights.append(weights)
+        # Store weights and signs for edges in this layer
+        weights = [tmpMat[r, c] for r, c in edges]
+        signs = [w >= 0 for w in weights]  # True for positive, False for negative
+        edgeWeights.append([abs(w) for w in weights])  # Store absolute values for width calculation
+        edgeSigns.append(signs)
     edgeLayer.append(edgeLayer.pop(0))  # move first layer to correct position
     edgeWeights.append(edgeWeights.pop(0))  # move weights to match
+    edgeSigns.append(edgeSigns.pop(0))  # move signs to match
 
     # Calculate weight scaling for line thickness
     # Get all non-zero weights for normalization
@@ -233,18 +261,49 @@ def drawEdge(G, pos, wMat, layer):
         else:
             widths = [1.0] * len(edgeLayer[i].edges)
         
-        nx.draw_networkx_edges(
-            G,
-            pos,
-            edgelist=edgeLayer[i].edges,
-            alpha=0.75,
-            width=widths,
-            edge_color=C,
-            edge_cmap=plt.cm.viridis,
-            edge_vmin=0.0,
-            edge_vmax=1.0,
-            arrowsize=8,
-        )
+        # Determine line styles: solid for positive, dashed for negative
+        styles = ['solid' if sign else 'dashed' for sign in edgeSigns[i]]
+        
+        # Draw edges with different styles for positive/negative weights
+        # NetworkX doesn't support per-edge styles directly, so we need to draw in groups
+        positive_edges = [edge for j, edge in enumerate(edgeLayer[i].edges) if edgeSigns[i][j]]
+        negative_edges = [edge for j, edge in enumerate(edgeLayer[i].edges) if not edgeSigns[i][j]]
+        positive_widths = [widths[j] for j in range(len(widths)) if edgeSigns[i][j]]
+        negative_widths = [widths[j] for j in range(len(widths)) if not edgeSigns[i][j]]
+        positive_colors = [C[j] for j in range(len(C)) if edgeSigns[i][j]]
+        negative_colors = [C[j] for j in range(len(C)) if not edgeSigns[i][j]]
+        
+        # Draw positive weights (solid lines)
+        if len(positive_edges) > 0:
+            nx.draw_networkx_edges(
+                G,
+                pos,
+                edgelist=positive_edges,
+                alpha=0.75,
+                width=positive_widths,
+                edge_color=positive_colors,
+                edge_cmap=plt.cm.viridis,
+                edge_vmin=0.0,
+                edge_vmax=1.0,
+                arrowsize=8,
+                style='solid',
+            )
+        
+        # Draw negative weights (dashed lines)
+        if len(negative_edges) > 0:
+            nx.draw_networkx_edges(
+                G,
+                pos,
+                edgelist=negative_edges,
+                alpha=0.75,
+                width=negative_widths,
+                edge_color=negative_colors,
+                edge_cmap=plt.cm.viridis,
+                edge_vmin=0.0,
+                edge_vmax=1.0,
+                arrowsize=8,
+                style='dashed',
+            )
 
 
 def getLayer(wMat):
