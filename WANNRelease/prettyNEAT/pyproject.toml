@@ -16,4 +16,6 @@ dependencies = [
     "pyglet==1.5.27",
     "black>=26.1.0",
     "seaborn>=0.13.2",
+    "networkx>=3.6.1",
+    "importlib>=1.0.4",
 ]

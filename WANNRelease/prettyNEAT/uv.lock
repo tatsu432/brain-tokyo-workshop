@@ -233,6 +233,12 @@ wheels = [
 ]
 
 [[package]]
+name = "importlib"
+version = "1.0.4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/31/77/3781f65cafe55480b56914def99022a5d2965a4bb269655c89ef2f1de3cd/importlib-1.0.4.zip", hash = "sha256:b6ee7066fea66e35f8d0acee24d98006de1a0a8a94a8ce6efe73a9a23c8d9826", size = 7074, upload-time = "2016-08-31T19:40:00.728Z" }
+
+[[package]]
 name = "kiwisolver"
 version = "1.4.9"
 source = { registry = "https://pypi.org/simple" }
@@ -403,6 +409,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/a2/6e/371856a3fb9d31ca8dac321cda606860fa4548858c0cc45d9d1d4ca2628b/mypy_extensions-1.1.0.tar.gz", hash = "sha256:52e68efc3284861e772bbcd66823fde5ae21fd2fdb51c62a211403730b916558", size = 6343, upload-time = "2025-04-22T14:54:24.164Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/79/7b/2c79738432f5c924bef5071f933bcc9efd0473bac3b4aa584a6f7c1c8df8/mypy_extensions-1.1.0-py3-none-any.whl", hash = "sha256:1be4cccdb0f2482337c4743e60421de3a356cd97508abadd57d47403e94f5505", size = 4963, upload-time = "2025-04-22T14:54:22.983Z" },
+]
+
+[[package]]
+name = "networkx"
+version = "3.6.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/6a/51/63fe664f3908c97be9d2e4f1158eb633317598cfa6e1fc14af5383f17512/networkx-3.6.1.tar.gz", hash = "sha256:26b7c357accc0c8cde558ad486283728b65b6a95d85ee1cd66bafab4c8168509", size = 2517025, upload-time = "2025-12-08T17:02:39.908Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9e/c9/b2622292ea83fbb4ec318f5b9ab867d0a28ab43c5717bb85b0a5f6b3b0a4/networkx-3.6.1-py3-none-any.whl", hash = "sha256:d47fbf302e7d9cbbb9e2555a0d267983d2aa476bac30e90dfbe5669bd57f3762", size = 2068504, upload-time = "2025-12-08T17:02:38.159Z" },
 ]
 
 [[package]]
@@ -640,8 +655,10 @@ dependencies = [
     { name = "black" },
     { name = "gym" },
     { name = "gymnasium" },
+    { name = "importlib" },
     { name = "matplotlib" },
     { name = "mpi4py" },
+    { name = "networkx" },
     { name = "numpy" },
     { name = "opencv-python-headless" },
     { name = "pygame" },
@@ -655,8 +672,10 @@ requires-dist = [
     { name = "black", specifier = ">=26.1.0" },
     { name = "gym", specifier = "==0.25.2" },
     { name = "gymnasium", specifier = ">=0.29.0" },
+    { name = "importlib", specifier = ">=1.0.4" },
     { name = "matplotlib", specifier = ">=3.10.8" },
     { name = "mpi4py", specifier = ">=4.1.1" },
+    { name = "networkx", specifier = ">=3.6.1" },
     { name = "numpy", specifier = ">=2.4.1" },
     { name = "opencv-python-headless", specifier = ">=4.8.0" },
     { name = "pygame", specifier = ">=2.6.0" },
