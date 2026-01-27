@@ -58,9 +58,23 @@ def load_species(spec_file, pop_size=None):
         if spec_data is None or len(spec_data) == 0:
             return None
 
+        # The spec file is saved in transposed format:
+        # - Row 0: All species IDs
+        # - Row 1: All fitness values
+        # We need to transpose it to get [species_id, fitness] per individual
+        if spec_data.shape[0] == 2 and spec_data.shape[1] > 2:
+            # Transposed format: (2, n_individuals) -> transpose to (n_individuals, 2)
+            spec_data = spec_data.T
+            print(f"Loaded species data from {spec_file} (transposed format)")
+        elif spec_data.shape[1] == 2:
+            # Already in correct format: (n_individuals, 2)
+            print(f"Loaded species data from {spec_file} (standard format)")
+        else:
+            print(f"Warning: Unexpected spec file shape: {spec_data.shape}")
+            return None
+
         # spec_data format: [species_id, fitness] per individual
         # Data is organized sequentially: all individuals from gen 0, then gen 1, etc.
-        print(f"Loaded species data from {spec_file}")
         print(f"  Total individuals: {len(spec_data)}")
 
         if pop_size is None:
@@ -75,6 +89,26 @@ def load_species(spec_file, pop_size=None):
 
         # Group individuals by generation (assuming pop_size individuals per generation)
         n_generations = len(spec_data) // pop_size
+        
+        if n_generations == 0:
+            # Spec file has fewer individuals than expected pop_size
+            # This might be from a partial run or different configuration
+            # Try to use the actual number of individuals as a single "generation"
+            print(f"  Warning: Spec file has {len(spec_data)} individuals, but pop_size is {pop_size}")
+            print(f"  This suggests the spec file may be incomplete or from a different run")
+            print(f"  Attempting to calculate species count from available data...")
+            
+            # If we have at least some data, try to group it
+            if len(spec_data) > 0:
+                # Use the actual number of individuals as if it's one generation
+                unique_species = np.unique(spec_data[:, 0].astype(int))
+                num_species = len(unique_species)
+                print(f"  Found {num_species} unique species in {len(spec_data)} individuals")
+                # Return a single value that will be repeated for all generations in stats
+                return np.array([num_species])
+            else:
+                return None
+        
         num_species_per_gen = []
 
         for gen in range(n_generations):
@@ -142,10 +176,11 @@ def visualize_training(
         # pop_size ≈ (evaluations[1] - evaluations[0]) for first generation
         pop_size = None
         if len(evaluations) > 1:
-            # Estimate population size from first generation's evaluation count
-            pop_size = int(evaluations[0]) if evaluations[0] > 0 else None
-            if pop_size is None and len(evaluations) > 1:
-                pop_size = int(evaluations[1] - evaluations[0])
+            # Estimate population size from difference between consecutive evaluations
+            pop_size = int(evaluations[1] - evaluations[0])
+        elif len(evaluations) == 1 and evaluations[0] > 0:
+            # Single generation: pop_size equals the evaluation count
+            pop_size = int(evaluations[0])
 
         num_species_per_gen = load_species(spec_file, pop_size)
 

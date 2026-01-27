@@ -71,18 +71,36 @@ Column 7: conn_med          - Median number of connections
 
 The species file (`*_spec.out`) contains species assignment data:
 
+**Actual Format (Saved by dataGatherer.py):**
 ```
-Format: [species_id, fitness]
+Format: Transposed matrix (2 rows, total_individuals columns)
+- Row 0: All species IDs across ALL generations [species_id_0, ..., species_id_n]
+- Row 1: All fitness values across ALL generations [fitness_0, ..., fitness_n]
+- Shape: (2, total_individuals)
+- Data organization: All individuals from gen 0, then all from gen 1, then gen 2, etc.
+```
+
+**Note:** The file is saved in transposed format and accumulates data across all generations. When loading, transpose it to get:
+```
+Format: [species_id, fitness] per individual
 - Each row represents one individual
 - Data is organized sequentially: all individuals from gen 0, then gen 1, etc.
-- species_id: Integer ID of the species this individual belongs to
-- fitness: Fitness value of this individual
+- Column 0: species_id - Integer ID of the species this individual belongs to
+- Column 1: fitness - Fitness value of this individual
+- Shape after transpose: (total_individuals, 2)
 ```
 
 **Extracting Species Count Per Generation:**
-- Group individuals by generation (need to know population size)
-- Count unique species IDs in each generation
-- This gives you the number of species over time
+1. Transpose the data to get (total_individuals, 2) format
+2. Group individuals by generation using population size:
+   - Generation 0: individuals [0 : pop_size]
+   - Generation 1: individuals [pop_size : 2*pop_size]
+   - Generation 2: individuals [2*pop_size : 3*pop_size]
+   - etc.
+3. Count unique species IDs in each generation
+4. This gives you the number of species over time
+
+**Important:** The spec file now accumulates data across all generations (fixed in dataGatherer.py). Each call to `gatherData()` appends the current generation's data to the accumulated data, so the file contains the full history of species assignments.
 
 ## Data Flow
 

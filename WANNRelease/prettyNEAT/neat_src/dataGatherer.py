@@ -49,7 +49,7 @@ class DataGatherer:
             Ind
         ] = []  # List of best individuals until the current generation
         self.bestFitVec: list[float] = []
-        self.spec_fit: list[tuple[int, float]] = []
+        self.spec_fit: np.ndarray = np.empty((2, 0))  # Initialize as empty array for accumulation
         self.field: list[str] = [
             "x_scale",
             "fit_med",
@@ -230,7 +230,15 @@ class DataGatherer:
                 for ind in species[iSpec].members:
                     tmp = np.array((iSpec, ind.fitness))
                     specFit = np.c_[specFit, tmp]
-            self.spec_fit = specFit
+            # Accumulate species data across generations (concatenate, don't overwrite)
+            # Format: (2, total_individuals) where row 0 = species IDs, row 1 = fitnesses
+            # Data is organized: all individuals from gen 0, then gen 1, then gen 2, etc.
+            if self.spec_fit.shape[1] == 0:
+                # First generation: initialize
+                self.spec_fit = specFit
+            else:
+                # Subsequent generations: concatenate horizontally
+                self.spec_fit = np.c_[self.spec_fit, specFit]
 
         self.num_species = np.append(self.num_species, len(species))
         # ------------------------------------------------------------------------
