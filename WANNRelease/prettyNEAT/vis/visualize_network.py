@@ -141,6 +141,28 @@ def main():
         print(f"  Weight vector shape: {wVec.shape}")
         print(f"  Activation vector shape: {aVec.shape}")
         print(f"  Number of connections: {len(wKey)}")
+        
+        # Diagnostic: Show output node activations
+        n_output = slimevolley_config.output_size
+        output_activations = aVec[-n_output:].astype(int)
+        expected_output_act = slimevolley_config.o_act[0] if len(slimevolley_config.o_act) > 0 else 1
+        
+        act_names = {
+            1: "Linear", 2: "Step", 3: "Sin", 4: "Gauss", 5: "Tanh",
+            6: "Sigmoid", 7: "Inverse", 8: "Abs", 9: "ReLU", 10: "Cos", 11: "Squared"
+        }
+        
+        print(f"\n  Output node activations (last {n_output} nodes):")
+        for i, act_id in enumerate(output_activations):
+            act_name = act_names.get(act_id, f"Unknown({act_id})")
+            print(f"    Output {i}: {act_name} (ID: {act_id})")
+        
+        expected_name = act_names.get(expected_output_act, f"Unknown({expected_output_act})")
+        print(f"  Expected (from config): {expected_name} (ID: {expected_output_act})")
+        
+        if not np.all(output_activations == expected_output_act):
+            print(f"  ⚠ Warning: Output activations in saved network don't match config!")
+            print(f"    This network was likely trained with different settings.")
     except Exception as e:
         print(f"Error loading network: {e}")
         return 1
@@ -166,6 +188,11 @@ def main():
         fig, ax = viewInd(ind, task_name)
         plt.title("NEAT Network - SlimeVolley", fontsize=14, fontweight="bold")
         plt.tight_layout()
+
+        # Create directory if it doesn't exist
+        output_dir = os.path.dirname(args.output)
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir)
 
         # Save figure
         print(f"Saving visualization to {args.output}")

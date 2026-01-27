@@ -17,7 +17,11 @@ def viewInd(ind, taskName):
         aVec = ind[:, -1]
     else:
         wMat = ind.wMat
-        aVec = np.zeros((np.shape(wMat)[0]))
+        # Use aVec from ind if available, otherwise create zeros
+        if hasattr(ind, 'aVec') and ind.aVec is not None and len(ind.aVec) > 0:
+            aVec = ind.aVec
+        else:
+            aVec = np.zeros((np.shape(wMat)[0]))
     print("# of Connections in ANN: ", np.sum(wMat != 0))
 
     # Create Graph
@@ -137,26 +141,40 @@ def labelInOut(pos, env):
 
 
 def drawNodeLabels(G, pos, aVec):
+    # Complete activation function labels with more readable names
+    # Mapping: actId -> label
     actLabel = np.array(
         (
             [
-                "",
-                "( + )",
-                "(0/1)",
-                "(sin)",
-                "(gau)",
-                "(tanh)",
-                "(sig)",
-                "( - )",
-                "(abs)",
-                "(relu)",
-                "(cos)",
+                "",           # 0 - unused
+                "Linear",     # 1 - Linear
+                "Step",       # 2 - Unsigned Step Function
+                "Sin",        # 3 - Sin
+                "Gauss",      # 4 - Gaussian
+                "Tanh",       # 5 - Hyperbolic Tangent
+                "Sigmoid",    # 6 - Sigmoid
+                "Inverse",    # 7 - Inverse
+                "Abs",        # 8 - Absolute Value
+                "ReLU",       # 9 - Relu
+                "Cos",        # 10 - Cosine
+                "Squared",    # 11 - Squared
             ]
         )
     )
-    listLabel = actLabel[aVec.astype(int)]
+    # Handle out-of-bounds indices (shouldn't happen, but be safe)
+    aVec_int = aVec.astype(int)
+    aVec_int = np.clip(aVec_int, 0, len(actLabel) - 1)
+    listLabel = actLabel[aVec_int]
     label = dict(enumerate(listLabel))
-    nx.draw_networkx_labels(G, pos, labels=label)
+    # Draw labels with larger, more readable font
+    nx.draw_networkx_labels(
+        G, 
+        pos, 
+        labels=label,
+        font_size=8,
+        font_weight='bold',
+        font_color='black'
+    )
 
 
 def drawEdge(G, pos, wMat, layer):
@@ -164,6 +182,7 @@ def drawEdge(G, pos, wMat, layer):
     # Organize edges by layer
     _, nPerLayer = np.unique(layer, return_counts=True)
     edgeLayer = []
+    edgeWeights = []  # Store weights for each layer
     layBord = np.cumsum(nPerLayer)
     for i in range(0, len(layBord)):
         tmpMat = np.copy(wMat)
@@ -172,20 +191,54 @@ def drawEdge(G, pos, wMat, layer):
         tmpMat[:, :start] *= 0
         tmpMat[:, end:] *= 0
         rows, cols = np.where(tmpMat != 0)
-        edges = zip(rows.tolist(), cols.tolist())
+        edges = list(zip(rows.tolist(), cols.tolist()))  # Convert to list to avoid zip exhaustion
         edgeLayer.append(nx.DiGraph())
         edgeLayer[-1].add_edges_from(edges)
+        # Store weights for edges in this layer
+        weights = [abs(tmpMat[r, c]) for r, c in edges]
+        edgeWeights.append(weights)
     edgeLayer.append(edgeLayer.pop(0))  # move first layer to correct position
+    edgeWeights.append(edgeWeights.pop(0))  # move weights to match
+
+    # Calculate weight scaling for line thickness
+    # Get all non-zero weights for normalization
+    all_weights = [w for weights in edgeWeights for w in weights]
+    if len(all_weights) > 0:
+        min_weight = min(all_weights)
+        max_weight = max(all_weights)
+        # Scale weights to line width range: 0.5 (thin) to 5.0 (thick)
+        # Use absolute value since we want magnitude
+        if max_weight > min_weight:
+            weight_range = max_weight - min_weight
+        else:
+            weight_range = 1.0  # Avoid division by zero
+    else:
+        min_weight = 0
+        weight_range = 1.0
 
     # Layer Colors
     for i in range(len(edgeLayer)):
         C = [i / len(edgeLayer)] * len(edgeLayer[i].edges)
+        # Calculate line widths based on weight magnitudes
+        if len(edgeWeights[i]) > 0:
+            # Normalize weights to [0.5, 5.0] range
+            widths = []
+            for w in edgeWeights[i]:
+                if weight_range > 0:
+                    normalized = (w - min_weight) / weight_range
+                    width = 0.5 + normalized * 4.5  # Scale to [0.5, 5.0]
+                else:
+                    width = 1.0  # Default if all weights are same
+                widths.append(width)
+        else:
+            widths = [1.0] * len(edgeLayer[i].edges)
+        
         nx.draw_networkx_edges(
             G,
             pos,
             edgelist=edgeLayer[i].edges,
             alpha=0.75,
-            width=1.0,
+            width=widths,
             edge_color=C,
             edge_cmap=plt.cm.viridis,
             edge_vmin=0.0,
