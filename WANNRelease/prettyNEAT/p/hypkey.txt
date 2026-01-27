@@ -13,7 +13,7 @@ prob_addConn      - (float)  - chance to add connections
 prob_addNode      - (float)  - chance to add node
 prob_crossover    - (float)  - chance of crossover
 prob_enable       - (float)  - chance to enable disabled connection
-prob_mutAct       - (float)  - chance to change node activation function
+prob_mutAct       - (float)  - chance to change each hidden node's activation function (per node)
 prob_mutConn      - (float)  - chance to mutate connection weight
 prob_initEnable   - (float)  - chance to enable each initial connection
 

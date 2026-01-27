@@ -222,6 +222,11 @@ class Ind:
         if np.random.rand() < p["prob_addConn"]:
             connG, innov = self.mutAddConn(connG, nodeG, innov, gen, p)
 
+        # - Activation function mutation
+        # Only mutate hidden nodes (type 3), not input/output/bias
+        if "prob_mutAct" in p and p["prob_mutAct"] > 0:
+            nodeG = self.mutActivation(nodeG, p)
+
         child = Ind(connG, nodeG)
         child.birth = gen
 
@@ -401,3 +406,46 @@ class Ind:
                 break
 
         return connG, innov
+
+    def mutActivation(self, nodeG: np.ndarray, p: dict) -> np.ndarray:
+        """Mutate activation function of hidden nodes
+
+        Each hidden node has an independent probability (prob_mutAct) of having
+        its activation function changed to a different one from the available range.
+
+        Args:
+          nodeG    - (np_array) - node genes
+                     [3 X nUniqueGenes]
+                     [0,:] == Node Id
+                     [1,:] == Type (1=input, 2=output 3=hidden 4=bias)
+                     [2,:] == Activation function (as int)
+          p        - (dict)     - algorithm hyperparameters (see p/hypkey.txt)
+
+        Returns:
+          nodeG    - (np_array) - updated node genes
+
+        """
+        # Find hidden nodes (type 3) - don't mutate input/output/bias
+        hiddenIdx = np.where(nodeG[1, :] == 3)[0]
+
+        if len(hiddenIdx) == 0:
+            return nodeG  # No hidden nodes to mutate
+
+        # Each hidden node has prob_mutAct chance to mutate
+        mutate = np.random.rand(len(hiddenIdx)) < p["prob_mutAct"]
+        nodesToMutate = hiddenIdx[mutate]
+
+        if len(nodesToMutate) == 0:
+            return nodeG
+
+        actRange = p["ann_actRange"]
+
+        for nodeIdx in nodesToMutate:
+            currentAct = int(nodeG[2, nodeIdx])
+            # Select a different activation function
+            availableActs = [act for act in actRange if act != currentAct]
+            if len(availableActs) > 0:
+                newAct = availableActs[np.random.randint(len(availableActs))]
+                nodeG[2, nodeIdx] = newAct
+
+        return nodeG
