@@ -50,8 +50,8 @@ def viewInd(ind, taskName):
         labelbottom=False,
     )  # labels along the bottom edge are off
 
-    # Add legend for connection styles and weights
-    addConnectionLegend(ax, weight_stats)
+    # Add legend for connection styles, weights, and action thresholds
+    addConnectionLegend(ax, weight_stats, env)
 
     return fig, ax
 
@@ -347,8 +347,8 @@ def cLinspace(start, end, N):
         return np.linspace(start, end, N)
 
 
-def addConnectionLegend(ax, weight_stats):
-    """Add legend showing connection styles (solid/dashed) and weight magnitudes."""
+def addConnectionLegend(ax, weight_stats, env):
+    """Add legend showing connection styles (solid/dashed), weight magnitudes, and action thresholds."""
     from matplotlib.lines import Line2D
     
     legend_elements = []
@@ -399,12 +399,118 @@ def addConnectionLegend(ax, weight_stats):
         legend_elements.append(Line2D([0], [0], color='gray', linestyle='solid', 
                                       linewidth=1.0, label='Weight magnitude'))
     
-    # Create legend in upper right corner
+    # Add separator before action threshold info
+    legend_elements.append(Line2D([0], [0], color='none', label=''))
+    
+    # Add action threshold information for SlimeVolley
+    # Check if this is SlimeVolley (has 3 outputs)
+    if hasattr(env, 'output_size') and env.output_size == 3:
+        threshold = 3/4  # 0.75
+        legend_elements.append(Line2D([0], [0], color='none', 
+                                      label=f'Action Threshold: {threshold:.2f}'))
+        legend_elements.append(Line2D([0], [0], color='none', 
+                                      label='Output > 0.75 → Action = True'))
+        legend_elements.append(Line2D([0], [0], color='none', 
+                                      label='Output ≤ 0.75 → Action = False'))
+    
+    # Create legend in upper right corner with smaller size
     legend = ax.legend(handles=legend_elements, loc='upper right', 
                        frameon=True, fancybox=True, shadow=True,
-                       fontsize=9, title='Connection Legend', title_fontsize=10)
+                       fontsize=7, title='Connection Legend', title_fontsize=8,
+                       handlelength=2, handletextpad=0.5, borderpad=0.5,
+                       columnspacing=1.0, labelspacing=0.3)
     legend.get_frame().set_facecolor('white')
     legend.get_frame().set_alpha(0.9)
+
+
+def addActionThresholdAnnotations(ax, pos, G, env, layer):
+    """Add threshold condition annotations on arrows from last hidden layer to output nodes."""
+    # Check if this is SlimeVolley (has 3 outputs)
+    if not (hasattr(env, 'output_size') and env.output_size == 3):
+        return
+    
+    threshold = 3/4  # 0.75
+    nIn = env.input_size + 1  # bias + inputs
+    nOut = env.output_size
+    nNode = len(G.nodes)
+    
+    # Get output node indices (last nOut nodes)
+    output_nodes = list(range(nNode - nOut, nNode))
+    
+    # Get output labels from environment
+    if hasattr(env, 'in_out_labels') and len(env.in_out_labels) >= nIn + nOut:
+        # Extract output labels (last nOut labels)
+        output_labels = env.in_out_labels[-nOut:]
+    else:
+        # Default labels
+        output_labels = ['forward', 'jump', 'back'][:nOut]
+    
+    # Find the last hidden layer (layer just before output layer)
+    # Output nodes are in the last layer, so we want nodes in the second-to-last layer
+    if len(layer) == 0:
+        return
+    
+    max_layer = max(layer)
+    last_hidden_layer = max_layer - 1  # Layer before output layer
+    
+    # Get nodes in the last hidden layer (non-input, non-output nodes in second-to-last layer)
+    last_hidden_nodes = [node for node in range(nIn, nNode - nOut) if node < len(layer) and layer[node] == last_hidden_layer]
+    
+    # If no nodes found in that layer, try to find any hidden nodes that connect to outputs
+    if not last_hidden_nodes:
+        # Fallback: find all hidden nodes (between input and output)
+        last_hidden_nodes = list(range(nIn, nNode - nOut))
+    
+    # Add annotations for each output node
+    for i, output_node_id in enumerate(output_nodes):
+        if output_node_id not in pos:
+            continue
+            
+        output_x, output_y = pos[output_node_id]
+        
+        # Find edges from last hidden layer nodes to this output node
+        # We want edges that go from last_hidden_nodes to this output_node_id
+        relevant_edges = [(src, dst) for src, dst in G.edges() 
+                         if dst == output_node_id and src in last_hidden_nodes]
+        
+        if not relevant_edges:
+            # Fallback: use any incoming edge to this output
+            relevant_edges = [(src, dst) for src, dst in G.edges() if dst == output_node_id]
+        
+        if not relevant_edges:
+            continue
+        
+        # Use the first relevant edge (from last hidden layer to output)
+        src_node = relevant_edges[0][0]
+        
+        if src_node not in pos:
+            continue
+            
+        src_x, src_y = pos[src_node]
+        
+        # Calculate position along the arrow (closer to output node, about 75% along the line)
+        # This places the annotation on the arrow from last hidden layer to output
+        t = 0.75  # Position along line: 0.75 means 75% from source to destination
+        annot_x = src_x + (output_x - src_x) * t
+        annot_y = src_y + (output_y - src_y) * t
+        
+        # Get label for this output
+        label = output_labels[i] if i < len(output_labels) else f'output_{i}'
+        
+        # Create annotation text
+        annot_text = f'{label}:\n> {threshold:.2f} → True\n≤ {threshold:.2f} → False'
+        
+        # Add annotation box positioned on the arrow (no arrow from annotation, just the box)
+        # Use text annotation with bbox instead of annotate with arrow
+        ax.text(
+            annot_x, annot_y,
+            annot_text,
+            fontsize=8,
+            ha='center',
+            va='center',
+            bbox=dict(boxstyle='round,pad=0.4', facecolor='yellow', alpha=0.8, edgecolor='black', linewidth=1.5),
+            zorder=10  # Ensure it's on top of the arrows
+        )
 
 
 def lload(fileName):
