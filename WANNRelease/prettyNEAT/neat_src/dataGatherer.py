@@ -213,6 +213,63 @@ class DataGatherer:
         self.fit_top = np.append(
             self.fit_top, self.best[-1].fitness
         )  # Best fitness across history
+        
+        # Track complexity of elite and best networks
+        # Helper function to get node count
+        def get_node_count(ind):
+            if hasattr(ind, 'node') and ind.node is not None:
+                if isinstance(ind.node, np.ndarray) and len(ind.node.shape) >= 2:
+                    return ind.node.shape[1]
+            return 0
+        
+        # Helper function to get connection count
+        def get_conn_count(ind):
+            # Try nConn (set by express() method)
+            if hasattr(ind, 'nConn') and ind.nConn is not None:
+                try:
+                    # Handle various types: int, float, numpy scalar, or array
+                    if isinstance(ind.nConn, (int, float)):
+                        return int(ind.nConn)
+                    elif isinstance(ind.nConn, np.ndarray):
+                        if ind.nConn.ndim == 0:
+                            return int(ind.nConn.item())
+                        elif len(ind.nConn) > 0:
+                            return int(ind.nConn[0])
+                    elif isinstance(ind.nConn, (np.integer, np.floating)):
+                        return int(ind.nConn)
+                except:
+                    pass
+            # Fall back to nConns() method
+            if hasattr(ind, 'nConns'):
+                try:
+                    return ind.nConns()
+                except:
+                    pass
+            # Fall back to counting enabled connections from conn array
+            if hasattr(ind, 'conn') and ind.conn is not None:
+                if isinstance(ind.conn, np.ndarray) and len(ind.conn.shape) >= 2:
+                    return int(np.sum(ind.conn[4, :] == 1))  # Count enabled connections
+            return 0
+        
+        # Elite: best individual in current generation
+        elite_nodes = get_node_count(self.elite[-1])
+        elite_conns = get_conn_count(self.elite[-1])
+        
+        # Best: best individual across all generations
+        best_nodes = get_node_count(self.best[-1])
+        best_conns = get_conn_count(self.best[-1])
+        
+        # Initialize arrays if first generation
+        if not hasattr(self, 'node_elite'):
+            self.node_elite = np.array([])
+            self.conn_elite = np.array([])
+            self.node_best = np.array([])
+            self.conn_best = np.array([])
+        
+        self.node_elite = np.append(self.node_elite, elite_nodes)
+        self.conn_elite = np.append(self.conn_elite, elite_conns)
+        self.node_best = np.append(self.node_best, best_nodes)
+        self.conn_best = np.append(self.conn_best, best_conns)
         # ------------------------------------------------------------------------
 
         # --- MOO Fronts ---------------------------------------------------------
@@ -518,6 +575,10 @@ class DataGatherer:
             "fit_top_raw",
             "node_med",
             "conn_med",
+            "node_elite",
+            "conn_elite",
+            "node_best",
+            "conn_best",
         ]
         genStats = np.empty((len(self.x_scale), 0))
         for i in range(len(gStatLabel)):

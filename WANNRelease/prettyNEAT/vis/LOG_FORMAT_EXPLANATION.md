@@ -35,17 +35,21 @@ When you run `neat_test.py`, it creates:
 
 ## Stats File Format
 
-The stats file (`*_stats.out`) is a CSV file with 8 columns:
+The stats file (`*_stats.out`) is a CSV file with 12 columns:
 
 ```
 Column 0: x_scale          - Cumulative evaluation count
-Column 1: fit_med          - Median fitness in population
-Column 2: fit_max          - Elite fitness (best in generation)
-Column 3: fit_top          - Best fitness ever (across all generations)
-Column 4: fit_max_raw      - Elite raw game score
-Column 5: fit_top_raw      - Best raw game score ever
+Column 1: fit_med           - Median fitness in population
+Column 2: fit_max           - Elite fitness (best in generation)
+Column 3: fit_top           - Best fitness ever (across all generations)
+Column 4: fit_max_raw       - Elite raw game score
+Column 5: fit_top_raw       - Best raw game score ever
 Column 6: node_med          - Median number of nodes
 Column 7: conn_med          - Median number of connections
+Column 8: node_elite        - Number of nodes in elite network (best in generation)
+Column 9: conn_elite        - Number of connections in elite network
+Column 10: node_best        - Number of nodes in best network (best ever)
+Column 11: conn_best        - Number of connections in best network
 ```
 
 ### Understanding the Columns
